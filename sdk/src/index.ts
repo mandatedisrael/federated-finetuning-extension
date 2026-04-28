@@ -7,5 +7,6 @@
  */
 
 export * as crypto from "./crypto/index.js";
+export * as coordinator from "./coordinator/index.js";
 
 export {FFEError, InvalidInputError, DecryptionFailedError, type FFEErrorCode} from "./errors.js";
