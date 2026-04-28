@@ -48,8 +48,6 @@ When the submission count reaches `quorum`, status flips to `QuorumReached` and 
 
 ## Deployments
 
-_Not yet deployed. Update this section after first Galileo broadcast._
-
-| Network | Address |
-|---|---|
-| Galileo testnet | `TBD` |
+| Network | Chain ID | Address | Tx |
+|---|---|---|---|
+| Galileo testnet | 16602 | [`0x4Dd446F51126d473070444041B9AA36d3ae7F295`](https://chainscan-galileo.0g.ai/address/0x4Dd446F51126d473070444041B9AA36d3ae7F295) | [`0xb957ee…11832`](https://chainscan-galileo.0g.ai/tx/0xb957ee7edd7629d7d4743e40b09a3fa4983fca6251ce67a25333fd08c4511832) |

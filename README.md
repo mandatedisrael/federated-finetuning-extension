@@ -297,7 +297,8 @@ OpenClaw extension (`@0g/ffe-openclaw`) • cross-base-model support beyond Qwen
 
 - [ ] Public GitHub repo with README + setup instructions
 - [ ] Architecture diagrams (before / after / usage)
-- [ ] Coordinator + INFT minter deployed on Galileo testnet
+- [x] Coordinator deployed on Galileo testnet — [`0x4Dd446F51126d473070444041B9AA36d3ae7F295`](https://chainscan-galileo.0g.ai/address/0x4Dd446F51126d473070444041B9AA36d3ae7F295)
+- [ ] INFT minter deployed on Galileo testnet
 - [ ] Demo video under 3 minutes
 - [ ] Live demo link
 - [ ] Working example agent built using FFE
