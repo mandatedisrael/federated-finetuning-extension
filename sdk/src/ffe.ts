@@ -1,0 +1,231 @@
+import {
+    bytesToHex,
+    keccak256,
+    parseEventLogs,
+    stringToBytes,
+    type Address,
+    type Hex,
+} from "viem";
+import {privateKeyToAccount} from "viem/accounts";
+import {coordinatorAbi} from "./coordinator/abi.js";
+import {createCoordinatorClient, type CoordinatorClient} from "./coordinator/client.js";
+import {ZeroGStorage} from "./storage/zerog.js";
+import {FFEError, InvalidInputError} from "./errors.js";
+
+/* ───────── public types ───────── */
+
+export interface FFEOptions {
+    /** Hex-encoded private key (0x-prefixed) for the wallet calling the Coordinator. */
+    privateKey: Hex | string;
+    /** Coordinator contract address. Defaults to the deployed Galileo address. */
+    coordinatorAddress?: Address;
+    /** Coordinator RPC URL. Defaults to the public Galileo endpoint. */
+    rpcUrl?: string;
+    /** 0G Storage EVM RPC. Defaults to Galileo. */
+    storageEvmRpc?: string;
+    /** 0G Storage indexer URL. Defaults to the public testnet indexer. */
+    storageIndexerRpc?: string;
+    /**
+     * How long to wait for createSession / setAggregatorPubkey transactions
+     * before giving up. Defaults to 120s — Galileo block times are ~2s but
+     * indexer + RPC propagation can lag.
+     */
+    txTimeoutMs?: number;
+}
+
+export interface ParticipantInfo {
+    address: Address;
+    /**
+     * The participant's X25519 public key. The aggregator uses this to seal
+     * the symmetric data key for them in the final INFT. Use
+     * `crypto.generateKeyPair()` to produce one.
+     */
+    publicKey: Uint8Array | Hex;
+}
+
+export interface OpenSessionOptions {
+    /**
+     * Base model identifier. Accepts:
+     *   - a label string ("Qwen2.5-0.5B") — hashed with keccak256
+     *   - a 32-byte hex string ("0x…")
+     *   - a 32-byte Uint8Array
+     */
+    baseModel: string | Hex | Uint8Array;
+    participants: readonly ParticipantInfo[];
+    /** Number of submissions required to flip the session to QuorumReached. */
+    quorum: number;
+    /**
+     * Optional: aggregator's enclave pubkey, set in the same call. If omitted,
+     * the creator must call `setAggregatorPubkey` separately before
+     * contributors can submit.
+     */
+    aggregatorPubkey?: Uint8Array | Hex;
+    /**
+     * Optional: attestation quote bytes accompanying the aggregator pubkey.
+     * Only meaningful when `aggregatorPubkey` is provided.
+     */
+    attestation?: Uint8Array | Hex;
+}
+
+export interface OpenSessionResult {
+    sessionId: bigint;
+    createTxHash: Hex;
+    /** Present only when `openSession` also set the aggregator pubkey in one shot. */
+    setAggregatorTxHash?: Hex;
+}
+
+/* ───────── helpers (exported for direct unit testing) ───────── */
+
+const BASE_MODEL_HEX = /^0x[0-9a-fA-F]{64}$/;
+
+/** @internal — exported for testing. */
+export function normalizeBaseModel(input: string | Hex | Uint8Array): Hex {
+    if (input instanceof Uint8Array) {
+        if (input.length !== 32) {
+            throw new InvalidInputError(`baseModel bytes must be 32, got ${input.length}`);
+        }
+        return bytesToHex(input);
+    }
+    if (typeof input === "string") {
+        if (BASE_MODEL_HEX.test(input)) {
+            // Already a 32-byte hash. Lowercase to match keccak256 output.
+            return input.toLowerCase() as Hex;
+        }
+        if (input.length === 0) {
+            throw new InvalidInputError("baseModel string is empty");
+        }
+        return keccak256(stringToBytes(input));
+    }
+    throw new InvalidInputError("baseModel must be string label, 32-byte hex, or Uint8Array");
+}
+
+/** @internal — exported for testing. */
+export function validateOpenSession(opts: OpenSessionOptions): void {
+    if (opts.participants.length === 0) {
+        throw new InvalidInputError("at least one participant required");
+    }
+    if (opts.participants.length > 0xff) {
+        throw new InvalidInputError(
+            `participants exceeds uint8 max (255); got ${opts.participants.length}`,
+        );
+    }
+    if (!Number.isInteger(opts.quorum) || opts.quorum < 1 || opts.quorum > opts.participants.length) {
+        throw new InvalidInputError(
+            `quorum must be an integer in [1, ${opts.participants.length}], got ${opts.quorum}`,
+        );
+    }
+
+    const seen = new Set<string>();
+    for (const p of opts.participants) {
+        const key = p.address.toLowerCase();
+        if (seen.has(key)) {
+            throw new InvalidInputError(`duplicate participant: ${p.address}`);
+        }
+        seen.add(key);
+        if (
+            (p.publicKey instanceof Uint8Array && p.publicKey.length === 0) ||
+            (typeof p.publicKey === "string" && p.publicKey === "0x")
+        ) {
+            throw new InvalidInputError(`empty publicKey for participant ${p.address}`);
+        }
+    }
+
+    if (opts.attestation && !opts.aggregatorPubkey) {
+        throw new InvalidInputError("attestation requires aggregatorPubkey to be set in the same call");
+    }
+}
+
+/* ───────── client ───────── */
+
+/**
+ * Top-level SDK entry point.
+ *
+ * Wires the Coordinator client + 0G Storage client behind a small ergonomic
+ * surface. For finer control, drop down to `ffe.coordinator.*` or
+ * `ffe.storage.*` directly — both are exposed as public fields.
+ */
+export class FFE {
+    readonly coordinator: CoordinatorClient;
+    readonly storage: ZeroGStorage;
+    readonly account: Address;
+    private readonly txTimeoutMs: number;
+
+    constructor(options: FFEOptions) {
+        const account = privateKeyToAccount(options.privateKey as Hex);
+        this.account = account.address;
+        this.txTimeoutMs = options.txTimeoutMs ?? 120_000;
+
+        this.coordinator = createCoordinatorClient({
+            account,
+            ...(options.coordinatorAddress ? {address: options.coordinatorAddress} : {}),
+            ...(options.rpcUrl ? {rpcUrl: options.rpcUrl} : {}),
+        });
+
+        this.storage = new ZeroGStorage({
+            privateKey: options.privateKey,
+            ...(options.storageEvmRpc ? {evmRpc: options.storageEvmRpc} : {}),
+            ...(options.storageIndexerRpc ? {indexerRpc: options.storageIndexerRpc} : {}),
+        });
+    }
+
+    /**
+     * Create a new fine-tuning session on the Coordinator.
+     *
+     * Submits the createSession transaction, waits for it to be mined,
+     * extracts the sessionId from the SessionCreated event, and (if
+     * `aggregatorPubkey` is provided) immediately publishes that pubkey.
+     *
+     * @throws InvalidInputError on malformed args
+     * @throws CoordinatorError on contract reverts
+     * @throws FFEError if the tx mines but no SessionCreated event is emitted
+     */
+    async openSession(opts: OpenSessionOptions): Promise<OpenSessionResult> {
+        validateOpenSession(opts);
+
+        const baseModel = normalizeBaseModel(opts.baseModel);
+        const participants = opts.participants.map((p) => p.address);
+        const ownerPubkeys = opts.participants.map((p) => p.publicKey);
+
+        const createTxHash = await this.coordinator.createSession({
+            baseModel,
+            participants,
+            ownerPubkeys,
+            quorum: opts.quorum,
+        });
+
+        const receipt = await this.coordinator.publicClient.waitForTransactionReceipt({
+            hash: createTxHash,
+            timeout: this.txTimeoutMs,
+        });
+
+        const events = parseEventLogs({
+            abi: coordinatorAbi,
+            eventName: "SessionCreated",
+            logs: receipt.logs,
+        });
+        if (events.length === 0) {
+            throw new FFEError(
+                "CHAIN_FAILED",
+                `createSession tx ${createTxHash} mined but no SessionCreated event found`,
+            );
+        }
+
+        const sessionId = events[0]!.args.sessionId;
+
+        if (!opts.aggregatorPubkey) {
+            return {sessionId, createTxHash};
+        }
+
+        const setAggregatorTxHash = await this.coordinator.setAggregatorPubkey({
+            sessionId,
+            pubkey: opts.aggregatorPubkey,
+            attestation: opts.attestation ?? new Uint8Array(),
+        });
+        await this.coordinator.publicClient.waitForTransactionReceipt({
+            hash: setAggregatorTxHash,
+            timeout: this.txTimeoutMs,
+        });
+
+        return {sessionId, createTxHash, setAggregatorTxHash};
+    }
+}

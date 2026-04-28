@@ -10,4 +10,12 @@ export * as crypto from "./crypto/index.js";
 export * as coordinator from "./coordinator/index.js";
 export * as storage from "./storage/index.js";
 
+export {
+    FFE,
+    type FFEOptions,
+    type ParticipantInfo,
+    type OpenSessionOptions,
+    type OpenSessionResult,
+} from "./ffe.js";
+
 export {FFEError, InvalidInputError, DecryptionFailedError, type FFEErrorCode} from "./errors.js";
