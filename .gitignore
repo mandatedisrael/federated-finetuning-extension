@@ -14,5 +14,10 @@ artifacts/
 cache/
 typechain-types/
 
+# foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
 # spike-only: cloned upstream references (re-clone as needed)
 phase0/**/reference/
