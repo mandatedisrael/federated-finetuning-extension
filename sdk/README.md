@@ -70,12 +70,30 @@ ciphertext       M bytes   AES-GCM-encrypted payload (incl. 16B tag)
 
 The on-chain `blobHash` is `keccak256(blob bytes)`.
 
+## Storage API
+
+Real client — uploads and downloads hit 0G Storage on Galileo.
+
+```ts
+import {storage} from "@notmartin/ffe";
+
+const s = new storage.ZeroGStorage({privateKey: process.env.OG_KEY});
+
+// Upload encrypted bytes; rootHash is what we put on-chain.
+const {rootHash, txHash} = await s.upload(blob.bytes);
+
+// Download by rootHash (no signer required).
+const back = await new storage.ZeroGStorage().download(rootHash);
+```
+
 ## Develop
 
 ```bash
-npm test            # 43 unit tests (mocked)
-npm run test:live   # +6 live tests vs. deployed Coordinator on Galileo
+npm test                                     # 44 unit tests (deterministic)
+npm run test:live                            # +6 live Coordinator tests
+FFE_LIVE_STORAGE_PRIVATE_KEY=0x... \
+  npm run test:live:storage                  # upload+download round-trip (gas)
 npm run typecheck
 npm run build
-npm run abi:sync    # regenerate Coordinator ABI after a contract change
+npm run abi:sync                             # regenerate Coordinator ABI
 ```
