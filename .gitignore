@@ -2,6 +2,10 @@
 node_modules/
 *.log
 
+# sdk build artifacts
+sdk/dist/
+sdk/coverage/
+
 # env / secrets
 .env
 .env.*
