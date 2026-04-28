@@ -23,6 +23,7 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:live": "FFE_LIVE=1 vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "abi:sync": "bash scripts/sync-abi.sh"

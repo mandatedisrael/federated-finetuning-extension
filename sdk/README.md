@@ -73,7 +73,9 @@ The on-chain `blobHash` is `keccak256(blob bytes)`.
 ## Develop
 
 ```bash
-npm test            # 23 unit tests
+npm test            # 43 unit tests (mocked)
+npm run test:live   # +6 live tests vs. deployed Coordinator on Galileo
 npm run typecheck
 npm run build
+npm run abi:sync    # regenerate Coordinator ABI after a contract change
 ```
