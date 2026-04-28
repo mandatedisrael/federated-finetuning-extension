@@ -1,5 +1,5 @@
 {
-  "name": "@0g/ffe",
+  "name": "@notmartin/ffe",
   "version": "0.1.0",
   "description": "Federated Fine-tuning Extension — multi-party fine-tuning on 0G",
   "license": "MIT",

@@ -1,4 +1,4 @@
-# @0g/ffe
+# @notmartin/ffe
 
 TypeScript SDK for Federated Fine-tuning Extension on 0G.
 
@@ -25,7 +25,7 @@ npm run build
 ## Crypto API
 
 ```ts
-import {crypto} from "@0g/ffe";
+import {crypto} from "@notmartin/ffe";
 
 // X25519 keypairs (e.g. wallet keys for sealedKey targeting)
 const recipient = crypto.generateKeyPair();

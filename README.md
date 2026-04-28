@@ -89,7 +89,7 @@ Contributor C  ──► encrypt JSONL_C to AggTEE pubkey ──► 0G Storage
 
 | Layer | What it is | Approx size |
 |---|---|---|
-| **SDK** (`@0g/ffe`) | TS/Python library — three calls: `openSession`, `submit`, `download` | ~150 LoC |
+| **SDK** (`@notmartin/ffe`) | TS/Python library — three calls: `openSession`, `submit`, `download` | ~150 LoC |
 | **CLI** | `npx ffe …` wrapper for non-developers | ~100 LoC |
 | **Coordinator contract** | Solidity on 0G Chain — session lifecycle, hash commits, slashing | ~300 LoC |
 | **INFT minter** | Wraps `0g-agent-nft` (ERC-7857) for multi-owner joint output | ~100 LoC |
@@ -189,7 +189,7 @@ using the standard for the use case it was specced around.
 
 ```
 ffe/
-├── sdk/             # @0g/ffe — TS library (openSession, submit, download)
+├── sdk/             # @notmartin/ffe — TS library (openSession, submit, download)
 ├── cli/             # npx ffe wrapper
 ├── contracts/       # Coordinator + INFT minter (Solidity)
 ├── aggregator/      # TEE service (Rust/Python) — runs inside 0G Tapp
@@ -260,7 +260,7 @@ rounds (M-of-N quorum) • robust aggregation (median, trimmed-mean, Krum).
 
 ### v3 — Ecosystem
 Reputation registry (ERC-8004) • skill marketplace integration •
-OpenClaw extension (`@0g/ffe-openclaw`) • cross-base-model support beyond Qwen.
+OpenClaw extension (`@notmartin/ffe-openclaw`) • cross-base-model support beyond Qwen.
 
 ---
 

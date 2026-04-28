@@ -76,7 +76,7 @@ Contributor C  ──► encrypt JSONL_C to AggTEE pubkey ──► 0G Storage
 
 | Layer | What it is | Approx size |
 |---|---|---|
-| **SDK** (`@0g/ffe`) | TS/Python library — three calls: `openSession`, `submit`, `download` | ~150 LoC |
+| **SDK** (`@notmartin/ffe`) | TS/Python library — three calls: `openSession`, `submit`, `download` | ~150 LoC |
 | **CLI** | `npx ffe ...` wrapper for non-developers | ~100 LoC |
 | **Coordinator contract** | Solidity on 0G Chain — session lifecycle, hash commits, slashing | ~300 LoC |
 | **INFT minter** | Wraps `0g-agent-nft` (ERC-7857) for multi-owner joint output | ~100 LoC |
@@ -259,7 +259,7 @@ universally understood stakes, regulatory backdrop everyone gets.
 ### v3 — ecosystem
 - Reputation system (compatible with ERC-8004 Reputation Registry)
 - Skill marketplace integration (joint LoRAs published as discoverable INFTs)
-- OpenClaw extension wrapper (`@0g/ffe-openclaw`) so OpenClaw agents can
+- OpenClaw extension wrapper (`@notmartin/ffe-openclaw`) so OpenClaw agents can
   contribute to and benefit from joint training sessions
 - Cross-base-model support beyond Qwen2.5/Qwen3
 

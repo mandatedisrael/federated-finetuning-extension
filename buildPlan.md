@@ -8,7 +8,7 @@
 
 | # | Name | Runtime | Path | LoC |
 |---|---|---|---|---|
-| 1 | SDK (`@0g/ffe`) | Node (contributor) | `sdk/` | ~150 |
+| 1 | SDK (`@notmartin/ffe`) | Node (contributor) | `sdk/` | ~150 |
 | 2 | CLI | Node (contributor) | `cli/` | ~100 |
 | 3 | Coordinator | Solidity, 0G Chain | `contracts/Coordinator.sol` | ~300 |
 | 4 | INFT minter | Solidity, 0G Chain | `contracts/INFTMinter.sol` | ~100 |
@@ -174,7 +174,7 @@ Drop in this order. Stop at the first level that buys back the time you need.
 
 ```
 ffe/
-├── sdk/                 # @0g/ffe TS library
+├── sdk/                 # @notmartin/ffe TS library
 │   ├── src/
 │   │   ├── session.ts
 │   │   ├── submit.ts
