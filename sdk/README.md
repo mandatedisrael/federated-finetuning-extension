@@ -93,6 +93,8 @@ npm test                                     # 44 unit tests (deterministic)
 npm run test:live                            # +6 live Coordinator tests
 FFE_LIVE_STORAGE_PRIVATE_KEY=0x... \
   npm run test:live:storage                  # upload+download round-trip (gas)
+FFE_LIVE_OPEN_PRIVATE_KEY=0x... \
+  npm run test:live:open                     # FFE.openSession() on Galileo (gas)
 npm run typecheck
 npm run build
 npm run abi:sync                             # regenerate Coordinator ABI

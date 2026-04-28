@@ -25,6 +25,7 @@
     "test:watch": "vitest",
     "test:live": "FFE_LIVE=1 vitest run",
     "test:live:storage": "FFE_LIVE_STORAGE=1 vitest run test/live/storage.live.test.ts",
+    "test:live:open": "FFE_LIVE_OPEN=1 vitest run test/live/ffe.live.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "abi:sync": "bash scripts/sync-abi.sh"
