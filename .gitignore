@@ -1,0 +1,18 @@
+# node
+node_modules/
+*.log
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# build output
+dist/
+build/
+artifacts/
+cache/
+typechain-types/
+
+# spike-only: cloned upstream references (re-clone as needed)
+phase0/**/reference/
