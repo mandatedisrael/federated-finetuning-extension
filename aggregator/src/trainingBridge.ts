@@ -1,10 +1,10 @@
 /**
  * Training bridge for the Aggregator.
- * Spawns a Python subprocess to fine-tune the LoRA adapter.
+ * Spawns a Python subprocess to fine-tune the LoRA adapter via 0G fine-tuning service.
  */
 
 import {spawn, type ChildProcess} from "child_process";
-import {randomBytes} from "crypto";
+import {randomBytes, createCipheriv, createDecipheriv} from "crypto";
 import {
   crypto,
 } from "@notmartin/ffe";
@@ -23,7 +23,7 @@ export interface TrainingBridgeOptions {
 export interface TrainingResult {
   /** Generated AES-256 key for encrypting the adapter */
   aesKey: Uint8Array;
-  /** Encrypted LoRA adapter (JSON.stringify'd, then encrypted) */
+  /** Encrypted LoRA adapter (JSON.stringify'd, then AES-256-GCM encrypted) */
   encryptedAdapter: Uint8Array;
   /** Raw adapter JSON (for debugging/validation) */
   rawAdapterJson: string;
@@ -85,14 +85,24 @@ export async function trainLoraAdapter(
         // Validate it's valid JSON
         JSON.parse(rawAdapterJson);
 
-        // For now, stub the encryption (A.4 full impl would encrypt via AES-256-GCM)
-        const encryptedAdapter = Buffer.from(
-          "[A.4 TODO] Encrypt adapter with AES-256-GCM"
-        );
+        // Encrypt adapter JSON with AES-256-GCM using the generated key
+        const adapterBytes = new TextEncoder().encode(rawAdapterJson);
+        const nonce = randomBytes(12); // 96-bit nonce for GCM
+        
+        // Use Node.js crypto to encrypt with AES-256-GCM
+        const cipher = createCipheriv("aes-256-gcm", aesKey, nonce);
+        let encryptedData = cipher.update(adapterBytes);
+        encryptedData = Buffer.concat([encryptedData, cipher.final()]);
+        
+        // Get the auth tag for GCM
+        const authTag = cipher.getAuthTag();
+        
+        // Combine: nonce (12) + authTag (16) + ciphertext
+        const fullEncrypted = Buffer.concat([nonce, authTag, encryptedData]);
 
         resolve({
-          aesKey,
-          encryptedAdapter: new Uint8Array(encryptedAdapter),
+          aesKey: new Uint8Array(aesKey),
+          encryptedAdapter: new Uint8Array(fullEncrypted),
           rawAdapterJson,
         });
       } catch (err) {
