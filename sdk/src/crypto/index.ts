@@ -16,7 +16,14 @@ export {
     type AeadCiphertext,
 } from "./aead.js";
 
-export {seal, unseal, type SealedKey} from "./seal.js";
+export {
+    seal,
+    unseal,
+    sealedKeyToBytes,
+    sealedKeyFromBytes,
+    SEALED_KEY_BYTES,
+    type SealedKey,
+} from "./seal.js";
 
 export {
     encryptToRecipient,

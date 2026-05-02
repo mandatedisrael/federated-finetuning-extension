@@ -1,6 +1,6 @@
 import {hkdf} from "@noble/hashes/hkdf";
 import {sha256} from "@noble/hashes/sha2";
-import {AES_KEY_BYTES, aeadDecrypt, aeadEncrypt, type AeadCiphertext} from "./aead.js";
+import {AES_KEY_BYTES, AES_NONCE_BYTES, aeadDecrypt, aeadEncrypt, type AeadCiphertext} from "./aead.js";
 import {generateKeyPair, sharedSecret, X25519_PUBLIC_KEY_BYTES} from "./keys.js";
 import {InvalidInputError} from "../errors.js";
 
@@ -59,6 +59,61 @@ export function seal(symmetricKey: Uint8Array, recipientPublicKey: Uint8Array): 
         nonce: wrapped.nonce,
         ciphertext: wrapped.ciphertext,
     };
+}
+
+/* ─────── SealedKey byte serialization ─────── */
+
+/**
+ * Wire format for a SealedKey stored on-chain in the INFTMinter:
+ *
+ *   ephemeralPublicKey   32 bytes  X25519 ephemeral pubkey
+ *   nonce                12 bytes  AES-GCM nonce
+ *   ciphertext           48 bytes  AES-GCM-wrapped data key (32B) + tag (16B)
+ *
+ * Total: 92 bytes. Fixed size — no length prefix needed.
+ */
+export const SEALED_KEY_BYTES =
+    X25519_PUBLIC_KEY_BYTES + AES_NONCE_BYTES + (AES_KEY_BYTES + 16); // 32 + 12 + 48
+
+/** Serialize a SealedKey to its 92-byte wire format for on-chain storage. */
+export function sealedKeyToBytes(sealed: SealedKey): Uint8Array {
+    if (sealed.ephemeralPublicKey.length !== X25519_PUBLIC_KEY_BYTES) {
+        throw new InvalidInputError(
+            `ephemeralPublicKey must be ${X25519_PUBLIC_KEY_BYTES} bytes`,
+        );
+    }
+    if (sealed.nonce.length !== AES_NONCE_BYTES) {
+        throw new InvalidInputError(`nonce must be ${AES_NONCE_BYTES} bytes`);
+    }
+    const expectedCt = AES_KEY_BYTES + 16;
+    if (sealed.ciphertext.length !== expectedCt) {
+        throw new InvalidInputError(`ciphertext must be ${expectedCt} bytes`);
+    }
+
+    const out = new Uint8Array(SEALED_KEY_BYTES);
+    let off = 0;
+    out.set(sealed.ephemeralPublicKey, off);
+    off += X25519_PUBLIC_KEY_BYTES;
+    out.set(sealed.nonce, off);
+    off += AES_NONCE_BYTES;
+    out.set(sealed.ciphertext, off);
+    return out;
+}
+
+/** Deserialize a 92-byte wire-format SealedKey from on-chain bytes. */
+export function sealedKeyFromBytes(bytes: Uint8Array): SealedKey {
+    if (bytes.length !== SEALED_KEY_BYTES) {
+        throw new InvalidInputError(
+            `sealedKey bytes must be ${SEALED_KEY_BYTES}, got ${bytes.length}`,
+        );
+    }
+    let off = 0;
+    const ephemeralPublicKey = bytes.slice(off, off + X25519_PUBLIC_KEY_BYTES);
+    off += X25519_PUBLIC_KEY_BYTES;
+    const nonce = bytes.slice(off, off + AES_NONCE_BYTES);
+    off += AES_NONCE_BYTES;
+    const ciphertext = bytes.slice(off);
+    return {ephemeralPublicKey, nonce, ciphertext};
 }
 
 /** Unseal a SealedKey using the recipient's X25519 private key. */

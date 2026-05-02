@@ -12,6 +12,9 @@ import {
     generateKeyPair,
     publicKeyFromPrivate,
     seal,
+    sealedKeyFromBytes,
+    SEALED_KEY_BYTES,
+    sealedKeyToBytes,
     unseal,
     X25519_PUBLIC_KEY_BYTES,
 } from "../src/crypto/index.js";
@@ -200,5 +203,51 @@ describe("encryptToRecipient / decryptForRecipient (blob format)", () => {
 
     it("encrypt rejects wrong-size recipient pubkey", () => {
         expect(() => encryptToRecipient(TEXT.encode("x"), new Uint8Array(31))).toThrow(InvalidInputError);
+    });
+});
+
+describe("SealedKey serialization", () => {
+    it("sealedKeyToBytes / sealedKeyFromBytes round-trips correctly", () => {
+        const recipient = generateKeyPair();
+        const dataKey = generateAesKey();
+        const sealed = seal(dataKey, recipient.publicKey);
+
+        const bytes = sealedKeyToBytes(sealed);
+        expect(bytes).toHaveLength(SEALED_KEY_BYTES);
+
+        const recovered = sealedKeyFromBytes(bytes);
+        expect(recovered.ephemeralPublicKey).toEqual(sealed.ephemeralPublicKey);
+        expect(recovered.nonce).toEqual(sealed.nonce);
+        expect(recovered.ciphertext).toEqual(sealed.ciphertext);
+    });
+
+    it("serialized bytes unseal to the original data key", () => {
+        const recipient = generateKeyPair();
+        const dataKey = generateAesKey();
+        const sealed = seal(dataKey, recipient.publicKey);
+        const bytes = sealedKeyToBytes(sealed);
+
+        const recoveredSealed = sealedKeyFromBytes(bytes);
+        const recoveredKey = unseal(recoveredSealed, recipient.privateKey);
+        expect(recoveredKey).toEqual(dataKey);
+    });
+
+    it("SEALED_KEY_BYTES is 92", () => {
+        expect(SEALED_KEY_BYTES).toBe(92);
+    });
+
+    it("sealedKeyFromBytes rejects wrong-length input", () => {
+        expect(() => sealedKeyFromBytes(new Uint8Array(91))).toThrow(InvalidInputError);
+        expect(() => sealedKeyFromBytes(new Uint8Array(93))).toThrow(InvalidInputError);
+    });
+
+    it("sealedKeyToBytes rejects malformed SealedKey", () => {
+        expect(() =>
+            sealedKeyToBytes({
+                ephemeralPublicKey: new Uint8Array(31),
+                nonce: new Uint8Array(12),
+                ciphertext: new Uint8Array(48),
+            }),
+        ).toThrow(InvalidInputError);
     });
 });
