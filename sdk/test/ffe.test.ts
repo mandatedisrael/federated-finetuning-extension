@@ -9,7 +9,7 @@ import {describe, expect, it} from "vitest";
 import {bytesToHex, getAddress, keccak256, stringToBytes, type Address, type Hex} from "viem";
 import {privateKeyToAccount} from "viem/accounts";
 import {FFE, InvalidInputError} from "../src/index.js";
-import {normalizeBaseModel, validateOpenSession} from "../src/ffe.js";
+import {normalizeBaseModel, validateOpenSession, validateSubmit} from "../src/ffe.js";
 
 const PRIVATE_KEY = ("0x" + "ab".repeat(32)) as Hex;
 const ALICE: Address = getAddress("0x000000000000000000000000000000000000a11c");
@@ -154,5 +154,45 @@ describe("validateOpenSession", () => {
         expect(() =>
             validateOpenSession({baseModel: "x", participants: huge, quorum: 1}),
         ).toThrow(InvalidInputError);
+    });
+});
+
+describe("validateSubmit", () => {
+    it("accepts valid input", () => {
+        expect(() =>
+            validateSubmit({sessionId: 1n, data: new Uint8Array([1, 2, 3])}),
+        ).not.toThrow();
+    });
+
+    it("rejects negative sessionId", () => {
+        expect(() =>
+            validateSubmit({sessionId: -1n, data: new Uint8Array([1])}),
+        ).toThrow(InvalidInputError);
+    });
+
+    it("rejects non-bigint sessionId", () => {
+        expect(() =>
+            // @ts-expect-error — intentional wrong type
+            validateSubmit({sessionId: 1, data: new Uint8Array([1])}),
+        ).toThrow(InvalidInputError);
+    });
+
+    it("rejects empty data", () => {
+        expect(() =>
+            validateSubmit({sessionId: 0n, data: new Uint8Array(0)}),
+        ).toThrow(InvalidInputError);
+    });
+
+    it("rejects non-Uint8Array data", () => {
+        expect(() =>
+            // @ts-expect-error — intentional wrong type
+            validateSubmit({sessionId: 0n, data: "jsonl string"}),
+        ).toThrow(InvalidInputError);
+    });
+
+    it("accepts sessionId of 0n", () => {
+        expect(() =>
+            validateSubmit({sessionId: 0n, data: new Uint8Array([0xff])}),
+        ).not.toThrow();
     });
 });

@@ -16,6 +16,8 @@ export {
     type ParticipantInfo,
     type OpenSessionOptions,
     type OpenSessionResult,
+    type SubmitOptions,
+    type SubmitResult,
 } from "./ffe.js";
 
 export {FFEError, InvalidInputError, DecryptionFailedError, type FFEErrorCode} from "./errors.js";

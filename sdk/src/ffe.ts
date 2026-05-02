@@ -1,5 +1,6 @@
 import {
     bytesToHex,
+    hexToBytes,
     keccak256,
     parseEventLogs,
     stringToBytes,
@@ -9,6 +10,7 @@ import {
 import {privateKeyToAccount} from "viem/accounts";
 import {coordinatorAbi} from "./coordinator/abi.js";
 import {createCoordinatorClient, type CoordinatorClient} from "./coordinator/client.js";
+import {encryptToRecipient} from "./crypto/blob.js";
 import {ZeroGStorage} from "./storage/zerog.js";
 import {FFEError, InvalidInputError} from "./errors.js";
 
@@ -74,6 +76,21 @@ export interface OpenSessionResult {
     setAggregatorTxHash?: Hex;
 }
 
+export interface SubmitOptions {
+    sessionId: bigint;
+    /** Raw contributor training data bytes (e.g. JSONL). */
+    data: Uint8Array;
+}
+
+export interface SubmitResult {
+    /** 0G Storage Merkle root — the on-chain `blobHash` commitment. */
+    rootHash: Hex;
+    /** 0G on-chain storage registration tx. */
+    storageTxHash: Hex;
+    /** `Coordinator.submit()` tx hash. */
+    submitTxHash: Hex;
+}
+
 /* ───────── helpers (exported for direct unit testing) ───────── */
 
 const BASE_MODEL_HEX = /^0x[0-9a-fA-F]{64}$/;
@@ -97,6 +114,16 @@ export function normalizeBaseModel(input: string | Hex | Uint8Array): Hex {
         return keccak256(stringToBytes(input));
     }
     throw new InvalidInputError("baseModel must be string label, 32-byte hex, or Uint8Array");
+}
+
+/** @internal — exported for testing. */
+export function validateSubmit(opts: SubmitOptions): void {
+    if (typeof opts.sessionId !== "bigint" || opts.sessionId < 0n) {
+        throw new InvalidInputError("sessionId must be a non-negative bigint");
+    }
+    if (!(opts.data instanceof Uint8Array) || opts.data.length === 0) {
+        throw new InvalidInputError("data must be a non-empty Uint8Array");
+    }
 }
 
 /** @internal — exported for testing. */
@@ -227,5 +254,55 @@ export class FFE {
         });
 
         return {sessionId, createTxHash, setAggregatorTxHash};
+    }
+
+    /**
+     * Encrypt and submit a contributor's training data to the session.
+     *
+     * Pipeline:
+     *   1. Fetch the session's aggregator pubkey from the Coordinator.
+     *   2. Encrypt `data` to the aggregator using X25519 + AES-256-GCM.
+     *   3. Upload the encrypted blob to 0G Storage → get `rootHash`.
+     *   4. Call `Coordinator.submit(sessionId, rootHash)` and wait for the tx.
+     *
+     * The returned `rootHash` is both the storage identifier and the on-chain
+     * `blobHash` commitment. The aggregator listens for `Submitted` events and
+     * downloads blobs by this hash.
+     *
+     * @throws InvalidInputError on malformed args
+     * @throws FFEError("CHAIN_FAILED") if the aggregator pubkey is not yet set
+     * @throws CoordinatorError on contract reverts
+     * @throws StorageError on upload failure
+     */
+    async submit(opts: SubmitOptions): Promise<SubmitResult> {
+        validateSubmit(opts);
+
+        const session = await this.coordinator.getSession(opts.sessionId);
+        if (session.aggregatorPubkey === "0x" || session.aggregatorPubkey.length <= 2) {
+            throw new FFEError(
+                "CHAIN_FAILED",
+                `session ${opts.sessionId} has no aggregator pubkey — call setAggregatorPubkey first`,
+            );
+        }
+
+        const aggPubkeyBytes = hexToBytes(session.aggregatorPubkey);
+        const blob = encryptToRecipient(opts.data, aggPubkeyBytes);
+
+        const upload = await this.storage.upload(blob.bytes);
+
+        const submitTxHash = await this.coordinator.submit({
+            sessionId: opts.sessionId,
+            blobHash: upload.rootHash,
+        });
+        await this.coordinator.publicClient.waitForTransactionReceipt({
+            hash: submitTxHash,
+            timeout: this.txTimeoutMs,
+        });
+
+        return {
+            rootHash: upload.rootHash,
+            storageTxHash: upload.txHash,
+            submitTxHash,
+        };
     }
 }
