@@ -129,19 +129,16 @@ async function handleQuorumReachedEvent(
         })),
       };
 
-      // [A.6 TODO] Uncomment when A.5 is implemented
-      // const mintResult = await mintLoraNFT(mintingPayload, {
-      //   aggregatorEVMPrivateKey: config.config.evmPrivateKey,
-      //   aggregatorX25519PrivateKey: config.config.x25519PrivateKey,
-      //   inftMinterAddress: config.config.inftMinterAddress,
-      //   rpcUrl: config.config.rpcUrl,
-      //   storageIndexerUrl: config.config.storageIndexerUrl,
-      // });
+      // [A.6] Mint INFT now that A.5 is implemented
+      const mintResult = await mintLoraNFT(mintingPayload, {
+        aggregatorEVMPrivateKey: config.config.evmPrivateKey,
+        aggregatorX25519PrivateKey: config.config.x25519PrivateKey,
+        inftMinterAddress: config.config.inftMinterAddress,
+        rpcUrl: config.config.rpcUrl,
+        storageIndexerUrl: config.config.storageIndexerUrl,
+      });
 
-      // console.log(`[Orchestrator] Session ${sessionId} complete: txHash=${mintResult.txHash}`);
-
-      // For now, log success
-      console.log(`[Orchestrator] Session ${sessionId} orchestration complete (awaiting A.5 minting)`);
+      console.log(`[Orchestrator] Session ${sessionId} complete: txHash=${mintResult.txHash}`);
     } finally {
       // Clean up JSONL file
       await cleanupBlobJsonl(blobResult.jsonlPath);
