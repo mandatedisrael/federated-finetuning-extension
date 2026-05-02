@@ -37,6 +37,14 @@ After Part 4, **Part 5** is `download()` — but that **needs the INFT minter co
 - 25 foundry tests, all passing
 - Source: `contracts/src/Coordinator.sol`, interface in `contracts/src/interfaces/ICoordinator.sol`
 
+### INFTMinter contract
+
+- Deployed on Galileo testnet at **`0x8c71F8176720bD0888e83B822FD7CE0164C67567`**
+- Minter address (deployer wallet): `0xB3AD3a10d187cbc4ca3e8c3EDED62F8286F8e16E`
+- 18 foundry tests, all passing (43 total in suite)
+- Source: `contracts/src/INFTMinter.sol`, interface in `contracts/src/interfaces/IINFTMinter.sol`
+- Note: minter = deployer wallet for now; update when aggregator address is known
+
 ### SDK (`@notmartin/ffe`)
 
 - npm name: **`@notmartin/ffe`** (under your scope)
@@ -125,6 +133,7 @@ forge script /Users/damiafo/Documents/projects/FFE/contracts/script/DeployCoordi
 | Explorer | https://chainscan-galileo.0g.ai |
 | 0G Storage indexer | `https://indexer-storage-testnet-turbo.0g.ai` |
 | Coordinator | `0x4Dd446F51126d473070444041B9AA36d3ae7F295` |
+| INFTMinter | `0x8c71F8176720bD0888e83B822FD7CE0164C67567` |
 
 ---
 
