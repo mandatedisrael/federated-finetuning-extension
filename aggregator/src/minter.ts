@@ -4,9 +4,11 @@
  */
 
 import {type Address, type Hash} from "viem";
+import {privateKeyToAccount} from "viem/accounts";
 import {
   crypto,
-  coordinator,
+  storage,
+  inft,
 } from "@notmartin/ffe";
 
 export interface MinterOptions {
@@ -59,18 +61,62 @@ export async function mintLoraNFT(
   payload: MintingPayload,
   options: MinterOptions
 ): Promise<MintResult> {
-  // [A.5 TODO] Full implementation:
-  // 1. Upload encrypted LoRA adapter to 0G Storage
-  // 2. Receive blob hash (Merkle root)
-  // 3. For each contributor:
-  //    a. Seal the adapter AES key to their X25519 pubkey via SDK crypto.seal()
-  //    b. Serialize sealed key to 92-byte wire format
-  // 4. Create account from aggregatorEVMPrivateKey
-  // 5. Create wallet client
-  // 6. Call INFTMinter.mint() with the sealed keys and blob hash
-  // 7. Return transaction hash, blob hash, and sealed keys
+  console.log(`[Minter] Starting NFT mint for session ${payload.sessionId}`);
 
-  throw new Error("[A.5 TODO] Implement NFT minting after LoRA training");
+  // 1. Upload encrypted LoRA adapter to 0G Storage
+  console.log(`[Minter] Uploading encrypted LoRA to 0G Storage...`);
+  const storageClient = new storage.ZeroGStorage({
+    privateKey: options.aggregatorEVMPrivateKey,
+    evmRpc: options.rpcUrl,
+    indexerRpc: options.storageIndexerUrl,
+  });
+
+  const uploadResult = await storageClient.upload(payload.encryptedLoraAdapter);
+  console.log(`[Minter] LoRA uploaded. Blob hash: ${uploadResult.rootHash}`);
+
+  // 2. Seal the adapter AES key for each contributor
+  console.log(`[Minter] Sealing AES key for ${payload.contributors.length} contributors...`);
+  const sealedKeys: {
+    contributor: Address;
+    sealedKey: Uint8Array;
+  }[] = [];
+
+  for (const contributor of payload.contributors) {
+    const sealed = crypto.seal(payload.adapterAESKey, contributor.pubkey);
+    const sealedBytes = crypto.sealedKeyToBytes(sealed);
+    sealedKeys.push({
+      contributor: contributor.address,
+      sealedKey: sealedBytes,
+    });
+  }
+
+  // 3. Create account from aggregator's private key
+  const account = privateKeyToAccount(options.aggregatorEVMPrivateKey);
+  console.log(`[Minter] Aggregator account: ${account.address}`);
+
+  // 4. Create INFTMinter client with wallet capabilities
+  const minterClient = inft.createINFTMinterClient({
+    address: options.inftMinterAddress,
+    rpcUrl: options.rpcUrl,
+    account,
+  });
+
+  // 5. Call INFTMinter.mint()
+  console.log(`[Minter] Calling mint() on INFTMinter...`);
+  const txHash = await minterClient.mint({
+    sessionId: payload.sessionId,
+    modelBlobHash: uploadResult.rootHash,
+    contributors: payload.contributors.map((c) => c.address),
+    sealedKeys: sealedKeys.map((s) => s.sealedKey),
+  });
+
+  console.log(`[Minter] Mint transaction: ${txHash}`);
+
+  return {
+    txHash: txHash as Hash,
+    loraBlobHash: uploadResult.rootHash as Hash,
+    sealedKeys,
+  };
 }
 
 /**
@@ -82,11 +128,10 @@ export async function sealDataKeyForContributor(
   recipientX25519Pubkey: Uint8Array,
   aggregatorX25519PrivateKey: Uint8Array
 ): Promise<Uint8Array> {
-  // [A.5 TODO] Use SDK's crypto.seal() to create a sealed envelope
-  // The result should be the sealed key bytes that can only be decrypted
-  // by the recipient using their X25519 private key
-
-  throw new Error("[A.5 TODO] Seal data key for contributor");
+  // Use SDK's crypto.seal() to create a sealed envelope
+  // aggregatorX25519PrivateKey is the ephemeral secret (not actually used in seal, but included for API consistency)
+  const sealed = crypto.seal(dataKey, recipientX25519Pubkey);
+  return crypto.sealedKeyToBytes(sealed);
 }
 
 /**
