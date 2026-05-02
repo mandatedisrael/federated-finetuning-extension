@@ -2,21 +2,41 @@
 
 > Where we left off. Read this first when picking back up.
 
-Last updated: end of SDK Part 3 (Apr 28, 2026).
+Last updated: May 2, 2026 (SDK Part 5.5 complete).
 
 ---
 
-## Pick up here tomorrow
+## Pick up here next
 
-**Next: Part 4 — `submit()` end-to-end.** Wires everything together. Two commits planned:
+**Judge confirmed: mock TEE is fine, won't disqualify.** Removes biggest risk (no Alibaba Cloud / real Tapp needed).
 
-- **4.1** `submit({sessionId, jsonlPath | bytes})` implementation + deterministic tests
-  Pipeline: read bytes → fetch aggregator pubkey from Coordinator → encrypt → upload to 0G Storage → call `Coordinator.submit(sessionId, rootHash)`. Returns `{rootHash, txHash}`.
+### Aggregator – Final Plan (7 commits)
 
-- **4.2** Live end-to-end test
-  Open a session, set aggregator pubkey, encrypt sample JSONL, upload, submit, verify on-chain via `getSubmission`. Gated `FFE_LIVE_SUBMIT=1`.
+**Stack:** Node.js (orchestration, events, crypto, 0G Storage) + Python subprocess (LoRA training only via 0G fine-tuning service).
 
-After Part 4, **Part 5** is `download()` — but that **needs the INFT minter contract** which doesn't exist yet. So between Part 4 and Part 5 we either build the INFT minter, or pivot to the mock TEE / aggregator service.
+| # | Task | Scope | DoD |
+|---|---|---|---|
+| A.1 | Scaffold + config | `aggregator/` package, env vars (AGG_EVM_KEY, AGG_X25519_KEY, COORDINATOR_ADDRESS, INFT_ADDRESS) | tsconfig, package.json, .env.example |
+| A.2 | Event listener | Polls `QuorumReached` every 5s, deduplicates, yields typed session payloads | unit tests |
+| A.3 | Blob processor | Downloads N blobs from 0G Storage, decrypts each with SDK `decryptForRecipient`, concatenates to temp JSONL | unit tests |
+| A.4 | Training bridge | `py/train.py` reads JSONL, fine-tunes Qwen2.5-0.5B via 0G service (1 epoch, rank 8), generates fresh AES key, encrypts adapter, writes nonciphertext bytes to stdout | subprocess integration test |
+| A.5 | Minter | Reads encrypted LoRA, uploads to 0G Storage, seals data key to each contributor's X25519 pubkey via SDK `seal()`, serializes to 92-byte wire format, calls `INFTMinter.mint()` | unit + live tests |
+| A.6 | Main orchestrator | Wires A.2 → A.3 → A.4 → A.5 in loop, per-session error isolation, structured logging, handles Coordinator state checks | integration test |
+| A.7 | Integration smoke test | Two wallets submit fake JSONL, aggregator runs locally, waits for `Minted` event, both call `FFE.download()`, verify decrypted bytes non-empty | live test gated by `FFE_LIVE_AGG=1` |
+
+### CLI (estimated: 1 commit after Aggregator)
+- `ffe session create --base <model> --participants <addrs> --quorum <n>` → returns sessionId
+- `ffe submit --session <id> --data <path>` → returns blobHash, txHash
+- `ffe download --session <id> --out <path>` → returns loraPath
+- Wraps SDK, pretty-prints JSON
+
+### Demo app (estimated: 1 commit after CLI)
+- Next.js: 3 contributor cards, before/after metrics, session timeline
+- Synthetic dataset where pooling visibly beats solo (≥15% gain)
+- Trigger live session from UI
+
+### Final live sweep (1 commit)
+- 3-contributor end-to-end on Galileo testnet + demo video
 
 ---
 
@@ -61,8 +81,15 @@ After Part 4, **Part 5** is `download()` — but that **needs the INFT minter co
 | 3.2 — Live storage round-trip test | ✅ | 2 live |
 | 3.3 — `FFE` class + `openSession()` | ✅ | 18 unit |
 | 3.4 — Live `openSession` test | ✅ | 2 live |
+| 4.1 — `FFE.submit()` implementation + deterministic tests | ✅ | 15 unit |
+| 4.2 — Live end-to-end test for `submit()` | ✅ | 2 live |
+| 5.1 — INFTMinter ABI vendored | ✅ | — |
+| 5.2 — INFTMinter typed client + tests | ✅ | 8 unit |
+| 5.3 — SealedKey byte serialization | ✅ | 4 unit |
+| 5.4 — `FFE.download()` implementation + deterministic tests | ✅ | 12 unit |
+| 5.5 — Live end-to-end test for `download()` | ✅ | 2 live |
 
-**Totals: 62 deterministic + ~12 live tests.**
+**Totals: 103 deterministic + ~16 live tests, all passing.**
 
 ---
 
@@ -70,12 +97,11 @@ After Part 4, **Part 5** is `download()` — but that **needs the INFT minter co
 
 | Item | Notes |
 |---|---|
-| **SDK Part 4** — `submit()` | Next thing to build |
-| **SDK Part 5** — `download()` | Blocked: needs INFT minter |
-| **INFT minter contract** | Wraps `0g-agent-nft` (`mint` once + `iCloneFrom` per contributor). Path validated by phase0 spike. |
-| **Mock TEE service** | Decision still parked — need it for Aggregator. |
-| **Aggregator service** | Listens for `QuorumReached`, decrypts, trains, encrypts, mints INFT. Rust/Python in TEE. |
-| **Demo app** | 3-contributor UI w/ before-after metrics. |
+| **CLI** | `ffe session create`, `ffe submit`, `ffe download` wrappers |
+| **Aggregator service** | Listens for `QuorumReached`, fetches + decrypts blobs, trains joint LoRA, runs Quality Gate, mints INFT |
+| **Quality Gate** | Per-contributor eval, rejection certificates, TEE signing |
+| **Demo app** | Next.js UI: 3 contributors, before/after metrics, live session trigger |
+| **Live E2E sweep** | 3-party dry-run on Galileo + demo video |
 
 ---
 
@@ -170,16 +196,21 @@ FFE/
 ## Recent commits (most recent first)
 
 ```
+29426e2 SDK part 5.5: live end-to-end test for FFE.download()
+c67c2d0 SDK part 5.4: FFE.download() implementation + deterministic tests
+1237e93 SDK part 5.3: SealedKey byte serialization (sealedKeyToBytes / sealedKeyFromBytes)
+6df62fc SDK part 5.2: INFTMinter typed client + tests
+3118428 SDK part 5.1: INFTMinter ABI vendored + sync script updated
+eb71df9 Deploy INFTMinter to Galileo testnet
+293389e INFT minter: deploy script for Galileo testnet
+53d542f INFT minter: Foundry tests (18 tests, all passing)
+1345da3 INFT minter: INFTMinter implementation
+d77fce4 INFT minter: IINFTMinter interface
+d4cf8cc SDK part 4.2: live end-to-end test for FFE.submit()
+6fad909 SDK part 4.1: FFE.submit() implementation + deterministic tests
+23afced Add STATUS.md — checkpoint before pausing for the day
 d3feb9b SDK part 3.4: live test for FFE.openSession() on Galileo
 4dba1ad SDK part 3.3: FFE class with openSession()
 3afb91c SDK part 3.2: live round-trip test for ZeroGStorage
 b4a4a5a SDK part 3.1: ZeroGStorage client (real, no mocks)
-71a305d Rename SDK package to @notmartin/ffe
-f7e25a6 SDK part 2.3: live integration tests vs Galileo Coordinator
-b8a009b SDK part 2.2: typed Coordinator client with custom-error decoding
-603dc24 SDK part 2.1: vendor Coordinator ABI as const for viem
-7292e47 SDK part 1: scaffold + crypto module (@0g/ffe v0.1)
-fa13b14 Record Coordinator deployment on Galileo testnet
-31b020a Add Coordinator contract (v0.1) with full test coverage
-ce74cc5 Phase 0.3: prove multi-owner sealedKey pattern works
 ```
