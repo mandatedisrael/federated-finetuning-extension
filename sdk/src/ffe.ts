@@ -10,7 +10,11 @@ import {
 import {privateKeyToAccount} from "viem/accounts";
 import {coordinatorAbi} from "./coordinator/abi.js";
 import {createCoordinatorClient, type CoordinatorClient} from "./coordinator/client.js";
+import {aeadDecrypt, AES_NONCE_BYTES} from "./crypto/aead.js";
 import {encryptToRecipient} from "./crypto/blob.js";
+import {sealedKeyFromBytes} from "./crypto/seal.js";
+import {unseal} from "./crypto/seal.js";
+import {createINFTMinterClient, type INFTMinterClient} from "./inft/client.js";
 import {ZeroGStorage} from "./storage/zerog.js";
 import {FFEError, InvalidInputError} from "./errors.js";
 
@@ -91,6 +95,25 @@ export interface SubmitResult {
     submitTxHash: Hex;
 }
 
+export interface DownloadOptions {
+    sessionId: bigint;
+    /**
+     * The contributor's X25519 private key — used to unseal the data key
+     * stored in the INFTMinter. Must match the pubkey registered at session
+     * creation via `openSession({ participants: [{ publicKey }] })`.
+     */
+    recipientPrivateKey: Uint8Array | Hex;
+}
+
+export interface DownloadResult {
+    /** Decrypted LoRA artifact bytes. */
+    data: Uint8Array;
+    /** 0G Storage Merkle root of the encrypted LoRA blob. */
+    modelBlobHash: Hex;
+    /** The INFTMinter token ID for this session. */
+    tokenId: bigint;
+}
+
 /* ───────── helpers (exported for direct unit testing) ───────── */
 
 const BASE_MODEL_HEX = /^0x[0-9a-fA-F]{64}$/;
@@ -123,6 +146,19 @@ export function validateSubmit(opts: SubmitOptions): void {
     }
     if (!(opts.data instanceof Uint8Array) || opts.data.length === 0) {
         throw new InvalidInputError("data must be a non-empty Uint8Array");
+    }
+}
+
+/** @internal — exported for testing. */
+export function validateDownload(opts: DownloadOptions): void {
+    if (typeof opts.sessionId !== "bigint" || opts.sessionId < 0n) {
+        throw new InvalidInputError("sessionId must be a non-negative bigint");
+    }
+    if (
+        !(opts.recipientPrivateKey instanceof Uint8Array) &&
+        typeof opts.recipientPrivateKey !== "string"
+    ) {
+        throw new InvalidInputError("recipientPrivateKey must be a Uint8Array or hex string");
     }
 }
 
@@ -173,6 +209,7 @@ export function validateOpenSession(opts: OpenSessionOptions): void {
  */
 export class FFE {
     readonly coordinator: CoordinatorClient;
+    readonly inft: INFTMinterClient;
     readonly storage: ZeroGStorage;
     readonly account: Address;
     private readonly txTimeoutMs: number;
@@ -185,6 +222,11 @@ export class FFE {
         this.coordinator = createCoordinatorClient({
             account,
             ...(options.coordinatorAddress ? {address: options.coordinatorAddress} : {}),
+            ...(options.rpcUrl ? {rpcUrl: options.rpcUrl} : {}),
+        });
+
+        this.inft = createINFTMinterClient({
+            account,
             ...(options.rpcUrl ? {rpcUrl: options.rpcUrl} : {}),
         });
 
@@ -304,5 +346,64 @@ export class FFE {
             storageTxHash: upload.txHash,
             submitTxHash,
         };
+    }
+
+    /**
+     * Download and decrypt the trained LoRA artifact for a completed session.
+     *
+     * Pipeline:
+     *   1. Resolve sessionId → tokenId via INFTMinter.
+     *   2. Fetch this contributor's sealedKey bytes from the INFTMinter.
+     *   3. Deserialize the SealedKey and unseal the data key using the
+     *      contributor's X25519 private key.
+     *   4. Fetch the encrypted LoRA blob from 0G Storage.
+     *   5. Decrypt: blob layout is `nonce(12B) || ciphertext` (AES-256-GCM).
+     *
+     * @throws InvalidInputError on malformed opts
+     * @throws FFEError("NOT_FOUND") if no INFT exists for this session, or
+     *         this contributor has no sealedKey in the token
+     * @throws DecryptionFailedError if the data key or ciphertext is wrong
+     * @throws StorageError on download failure
+     */
+    async download(opts: DownloadOptions): Promise<DownloadResult> {
+        validateDownload(opts);
+
+        const recipientPrivKey =
+            opts.recipientPrivateKey instanceof Uint8Array
+                ? opts.recipientPrivateKey
+                : hexToBytes(opts.recipientPrivateKey as Hex);
+
+        // 1. Resolve tokenId
+        const tokenId = await this.inft.getTokenBySession(opts.sessionId);
+
+        // 2. Fetch sealedKey for this account
+        const sealedKeyHex = await this.inft.getSealedKey(tokenId, this.account);
+        if (!sealedKeyHex || sealedKeyHex === "0x" || sealedKeyHex.length <= 2) {
+            throw new FFEError(
+                "NOT_FOUND",
+                `no sealed key for ${this.account} in INFTMinter token ${tokenId}`,
+            );
+        }
+
+        // 3. Unseal the data key
+        const sealedKey = sealedKeyFromBytes(hexToBytes(sealedKeyHex));
+        const dataKey = unseal(sealedKey, recipientPrivKey);
+
+        // 4. Fetch encrypted LoRA
+        const record = await this.inft.getMintRecord(tokenId);
+        const encryptedLora = await this.storage.download(record.modelBlobHash);
+
+        // 5. Decrypt: nonce(12) || ciphertext
+        if (encryptedLora.length <= AES_NONCE_BYTES) {
+            throw new FFEError(
+                "STORAGE_FAILED",
+                "downloaded LoRA blob is too short to contain AES nonce",
+            );
+        }
+        const nonce = encryptedLora.slice(0, AES_NONCE_BYTES);
+        const ciphertext = encryptedLora.slice(AES_NONCE_BYTES);
+        const data = aeadDecrypt(dataKey, {nonce, ciphertext});
+
+        return {data, modelBlobHash: record.modelBlobHash, tokenId};
     }
 }

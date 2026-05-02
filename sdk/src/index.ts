@@ -18,6 +18,10 @@ export {
     type OpenSessionResult,
     type SubmitOptions,
     type SubmitResult,
+    type DownloadOptions,
+    type DownloadResult,
 } from "./ffe.js";
+
+export * as inft from "./inft/index.js";
 
 export {FFEError, InvalidInputError, DecryptionFailedError, type FFEErrorCode} from "./errors.js";

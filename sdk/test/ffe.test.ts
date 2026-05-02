@@ -9,7 +9,7 @@ import {describe, expect, it} from "vitest";
 import {bytesToHex, getAddress, keccak256, stringToBytes, type Address, type Hex} from "viem";
 import {privateKeyToAccount} from "viem/accounts";
 import {FFE, InvalidInputError} from "../src/index.js";
-import {normalizeBaseModel, validateOpenSession, validateSubmit} from "../src/ffe.js";
+import {normalizeBaseModel, validateDownload, validateOpenSession, validateSubmit} from "../src/ffe.js";
 
 const PRIVATE_KEY = ("0x" + "ab".repeat(32)) as Hex;
 const ALICE: Address = getAddress("0x000000000000000000000000000000000000a11c");
@@ -194,5 +194,47 @@ describe("validateSubmit", () => {
         expect(() =>
             validateSubmit({sessionId: 0n, data: new Uint8Array([0xff])}),
         ).not.toThrow();
+    });
+});
+
+describe("validateDownload", () => {
+    const PRIV_KEY_HEX = ("0x" + "ab".repeat(32)) as Hex;
+    const PRIV_KEY_BYTES = new Uint8Array(32).fill(0xab);
+
+    it("accepts Uint8Array recipientPrivateKey", () => {
+        expect(() =>
+            validateDownload({sessionId: 1n, recipientPrivateKey: PRIV_KEY_BYTES}),
+        ).not.toThrow();
+    });
+
+    it("accepts hex string recipientPrivateKey", () => {
+        expect(() =>
+            validateDownload({sessionId: 1n, recipientPrivateKey: PRIV_KEY_HEX}),
+        ).not.toThrow();
+    });
+
+    it("rejects negative sessionId", () => {
+        expect(() =>
+            validateDownload({sessionId: -1n, recipientPrivateKey: PRIV_KEY_BYTES}),
+        ).toThrow(InvalidInputError);
+    });
+
+    it("rejects non-bigint sessionId", () => {
+        expect(() =>
+            // @ts-expect-error — intentional wrong type
+            validateDownload({sessionId: 1, recipientPrivateKey: PRIV_KEY_BYTES}),
+        ).toThrow(InvalidInputError);
+    });
+
+    it("rejects null recipientPrivateKey", () => {
+        expect(() =>
+            // @ts-expect-error — intentional wrong type
+            validateDownload({sessionId: 1n, recipientPrivateKey: null}),
+        ).toThrow(InvalidInputError);
+    });
+
+    it("exposes an inft client on the FFE instance", () => {
+        const ffe = new FFE({privateKey: PRIV_KEY_HEX});
+        expect(ffe.inft).toBeDefined();
     });
 });
