@@ -26,9 +26,11 @@
     "test:live": "FFE_LIVE_AGG=1 vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "keygen": "tsx scripts/keygen.ts"
   },
   "dependencies": {
+    "@0gfoundation/0g-compute-ts-sdk": "^0.8.0",
     "@0gfoundation/0g-ts-sdk": "^1.2.6",
     "@noble/ciphers": "^1.0.0",
     "@noble/curves": "^1.6.0",
@@ -40,6 +42,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsup": "^8.3.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   },
