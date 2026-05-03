@@ -1,31 +1,27 @@
 import {defineChain} from "viem";
 
 /**
- * 0G Galileo testnet — chain config for viem.
- *
- * RPC and explorer endpoints are the public ones from docs.0g.ai. For
- * production-grade workloads, swap the RPC URL for a private provider
- * (Ankr, dRPC, QuickNode, ThirdWeb, etc.).
+ * 0G Mainnet — chain config for viem.
  */
 export const galileo = defineChain({
-    id: 16602,
-    name: "0G Galileo Testnet",
+    id: 16661,
+    name: "0G Mainnet",
     nativeCurrency: {
-        name: "0G Test Token",
+        name: "0G Token",
         symbol: "OG",
         decimals: 18,
     },
     rpcUrls: {
-        default: {http: ["https://evmrpc-testnet.0g.ai"]},
+        default: {http: ["https://evmrpc.0g.ai"]},
     },
     blockExplorers: {
         default: {
-            name: "Galileo Chainscan",
-            url: "https://chainscan-galileo.0g.ai",
+            name: "0G Scan",
+            url: "https://chainscan.0g.ai",
         },
     },
-    testnet: true,
+    testnet: false,
 });
 
-/** Address of the Coordinator deployed on Galileo. */
-export const GALILEO_COORDINATOR_ADDRESS = "0x4Dd446F51126d473070444041B9AA36d3ae7F295" as const;
+/** Address of the Coordinator deployed on 0G mainnet. */
+export const GALILEO_COORDINATOR_ADDRESS = "0x840C3E83A5f3430079Aff7247CD957c994076015" as const;

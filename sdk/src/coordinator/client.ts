@@ -13,7 +13,7 @@ import {
     type WalletClient,
 } from "viem";
 import {coordinatorAbi} from "./abi.js";
-import {galileo} from "./chain.js";
+import {galileo, GALILEO_COORDINATOR_ADDRESS} from "./chain.js";
 import {rethrowCoordinatorError} from "./errors.js";
 
 /* ──────────── public types ──────────── */
@@ -97,7 +97,7 @@ export interface CoordinatorClient {
 
 export function createCoordinatorClient(options: CoordinatorClientOptions = {}): CoordinatorClient {
     const chain = options.chain ?? galileo;
-    const address = options.address ?? ("0x4Dd446F51126d473070444041B9AA36d3ae7F295" as Address);
+    const address = options.address ?? GALILEO_COORDINATOR_ADDRESS;
 
     const transport = options.transport ?? http(options.rpcUrl);
 

@@ -2,7 +2,7 @@
  * Live integration test for FFE.openSession().
  *
  * Calls createSession + setAggregatorPubkey on the deployed Coordinator
- * at 0x4Dd446F51126d473070444041B9AA36d3ae7F295 on Galileo testnet.
+ * at 0x840C3E83A5f3430079Aff7247CD957c994076015 on Galileo testnet.
  *
  * Skipped by default. To run:
  *
