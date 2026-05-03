@@ -1,15 +1,20 @@
 /**
  * Training bridge for the Aggregator.
- * Calls the 0G fine-tuning service via @0gfoundation/0g-compute-ts-sdk (real mode)
- * or runs a deterministic TEE simulation for demo/dev mode.
- * No Python subprocess involved.
+ * Uses 0g-compute-cli for real fine-tuning or simulates TEE for demo/dev.
  */
 
 import {readFile, writeFile, rm} from "fs/promises";
 import {join} from "path";
-import {createHash, randomBytes, createCipheriv} from "crypto";
+import {createHash, randomBytes} from "crypto";
+import {createRequire} from "module";
+import {crypto as ffeCrypto} from "@notmartin/ffe";
 import {JsonRpcProvider, Wallet} from "ethers";
-import {createZGComputeNetworkBroker} from "@0gfoundation/0g-compute-ts-sdk";
+import type {createZGComputeNetworkBroker as createBroker} from "@0gfoundation/0g-compute-ts-sdk";
+
+const require = createRequire(import.meta.url);
+const {createZGComputeNetworkBroker} = require("@0gfoundation/0g-compute-ts-sdk") as {
+  createZGComputeNetworkBroker: typeof createBroker;
+};
 
 export interface TrainingBridgeOptions {
   /** Path to input JSONL file (decrypted contributor data) */
@@ -35,7 +40,7 @@ export interface TrainingBridgeOptions {
 export interface TrainingResult {
   /** Generated AES-256 key for encrypting the adapter */
   aesKey: Uint8Array;
-  /** Encrypted LoRA adapter bytes (nonce‖authTag‖ciphertext) */
+  /** Encrypted LoRA adapter bytes (nonce‖ciphertext-with-auth-tag) */
   encryptedAdapter: Uint8Array;
   /** Task metadata JSON — includes base_model, session_id, rank, mode */
   rawAdapterJson: string;
@@ -54,12 +59,14 @@ export async function trainLoraAdapter(
     ? await trainWith0GService(options)
     : await simulateTraining(options);
 
-  // Encrypt adapter bytes: nonce(12) ‖ authTag(16) ‖ ciphertext
-  const nonce = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", aesKey, nonce);
-  const encBody = Buffer.concat([cipher.update(Buffer.from(adapterBytes)), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-  const encryptedAdapter = new Uint8Array(Buffer.concat([nonce, authTag, encBody]));
+  // Encrypt adapter bytes in the SDK download format:
+  // nonce(12) ‖ ciphertext-with-auth-tag.
+  const encrypted = ffeCrypto.aeadEncrypt(aesKey, adapterBytes);
+  const encryptedAdapter = new Uint8Array(
+    encrypted.nonce.length + encrypted.ciphertext.length
+  );
+  encryptedAdapter.set(encrypted.nonce, 0);
+  encryptedAdapter.set(encrypted.ciphertext, encrypted.nonce.length);
 
   return {
     aesKey: new Uint8Array(aesKey),
@@ -101,20 +108,17 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
   const ft = broker.fineTuning;
 
   if (!ft) {
-    throw new Error("[TrainingBridge] Fine-tuning broker unavailable (signer not a Wallet?)");
+    throw new Error("[TrainingBridge] Fine-tuning broker unavailable");
   }
 
-  // Idempotent — safe to call every time
   console.error(`[TEE] Acknowledging provider TEE signer: ${ftProviderAddress}`);
   await ft.acknowledgeProviderSigner(ftProviderAddress);
 
-  // Upload decrypted JSONL directly into the TEE (never leaves encrypted channel)
-  console.error("[TEE] Uploading dataset to TEE...");
+  console.error(`[TEE] Uploading dataset directly to TEE: ${jsonlPath}`);
   const uploadResult = await ft.uploadDatasetToTEE(ftProviderAddress, jsonlPath);
-  const datasetHash = uploadResult!.datasetHash;
+  const datasetHash = uploadResult.datasetHash;
   console.error(`[TEE] Dataset hash: ${datasetHash}`);
 
-  // Write training hyperparameters to a temp file (SDK requires a path)
   const paramsPath = join(tempDir, `training_params_${sessionId}.json`);
   await writeFile(
     paramsPath,
@@ -127,13 +131,11 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
     })
   );
 
-  // Submit the task
   console.error(`[TEE] Creating fine-tuning task (model: ${baseModel})...`);
   const taskId = await ft.createTask(ftProviderAddress, baseModel, datasetHash, paramsPath);
   await rm(paramsPath).catch(() => {});
   console.error(`[TEE] Task ID: ${taskId}`);
 
-  // Poll until terminal state
   const deadline = Date.now() + timeoutMs;
   const startMs = Date.now();
   let lastProgress = "";
@@ -153,7 +155,6 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
         throw new Error(`[TrainingBridge] Task ${taskId} ended with status: ${progress}`);
       }
     } catch (err) {
-      // Provider may be temporarily unreachable while GPU is busy
       console.error("[TEE] Provider busy, retrying...");
     }
   }
@@ -163,10 +164,11 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
     throw new Error(`[TrainingBridge] Training timed out after ${timeoutMs}ms (task: ${taskId})`);
   }
 
-  // Download and acknowledge LoRA weights on-chain
   const adapterPath = join(tempDir, `lora_${taskId}.bin`);
   console.error("[TEE] Downloading LoRA weights...");
-  await ft.acknowledgeModel(ftProviderAddress, taskId, adapterPath);
+  await ft.acknowledgeModel(ftProviderAddress, taskId, adapterPath, {
+    downloadMethod: "auto",
+  });
 
   const adapterBytes = new Uint8Array(await readFile(adapterPath));
   await rm(adapterPath).catch(() => {});

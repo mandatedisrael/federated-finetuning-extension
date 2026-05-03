@@ -51,21 +51,16 @@ describe("Minter", () => {
   });
 
   it("should accept 92-byte sealed key structure", () => {
-    // Wire format: [ephemeralPubkey (32)] + [nonce (16)] + [ciphertext (32)] + [tag (16)]
-    // Total: 32 + 16 + 32 + 16 = 96 bytes, but in some cases it might be 92
-    // Let's verify the structure is correct
+    // Wire format: [ephemeralPubkey (32)] + [nonce (12)] + [ciphertext+tag (48)]
 
     const ephemeralPubkey = new Uint8Array(32).fill(0xaa);
-    const nonce = new Uint8Array(16).fill(0xbb);
-    const ciphertext = new Uint8Array(32).fill(0xcc);
-    const tag = new Uint8Array(12).fill(0xdd); // 12-byte GCM tag in practice, but wire format might compress
+    const nonce = new Uint8Array(12).fill(0xbb);
+    const ciphertextWithTag = new Uint8Array(48).fill(0xcc);
 
-    // Standard AES-GCM sealed key should be 92 bytes: 32 + 16 + 32 + 12
     const sealedKey = new Uint8Array([
       ...ephemeralPubkey,
       ...nonce,
-      ...ciphertext,
-      ...tag,
+      ...ciphertextWithTag,
     ]);
 
     expect(sealedKey.length).toBe(92);

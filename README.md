@@ -1,324 +1,313 @@
 # FFE — Federated Fine-tuning Extension
 
-> *From N=1 to N>1. Privately.*
+> From N=1 to N>1. Privately.
 
-A drop-in extension to **0G**'s fine-tuning network that takes it from
-single-tenant (one user, one dataset, one private model out) to **multi-tenant
-joint training** — where N parties co-train one shared LoRA without any of them
-ever exposing raw data to each other or to 0G.
+FFE extends 0G fine-tuning from a single user training on one private dataset
+into a multi-contributor workflow: several parties encrypt datasets to an
+aggregator, the aggregator trains one shared LoRA, and the result is minted as
+an INFT with a sealed decryption key for each contributor.
 
-Built for the **Best Agent Framework, Tooling & Core Extensions** track of the
-Open-Agent hackathon.
+The current repo includes a live two-contributor end-to-end runner. It is not a
+mock: `pnpm demo` creates an on-chain FFE session, submits encrypted datasets,
+runs the aggregator, calls real 0G fine-tuning, mints an INFT, and verifies both
+contributors decrypt the same LoRA bytes.
 
 ---
 
 ## TL;DR
 
-0G's fine-tuning today is for **one user**. FFE extends it to **many**, without
-anyone seeing anyone else's data.
-
-- N parties encrypt their JSONL datasets to a TEE aggregator's pubkey
-- The aggregator decrypts inside an attested enclave and trains **one shared LoRA**
-- The result is minted as an **ERC-7857 INFT** with one `sealedKey` per contributor
-- Everyone walks away with the same model — jointly owned, trained on all the data
+- Contributors encrypt JSONL datasets to the aggregator X25519 public key.
+- The Coordinator contract tracks sessions, participants, submissions, and quorum.
+- When quorum is reached, the aggregator fetches and decrypts blobs, combines the
+  data, and trains one shared LoRA through 0G fine-tuning.
+- The trained LoRA is encrypted once with AES-256-GCM.
+- The LoRA key is sealed separately for each contributor and stored in the INFT.
+- Each contributor can independently download and decrypt the same shared model.
 
 ---
 
-## The problem (visual)
+## Current Status
 
-### Before — Current siloed fine-tuning
+Implemented:
 
-Each trader trains alone on their own slice of the data. Three weak,
-narrow-view models.
+- TypeScript SDK surface: `openSession`, `submit`, `download`
+- Coordinator contract for session lifecycle and quorum
+- INFT minter contract with per-contributor sealed keys
+- Aggregator pipeline: listen for quorum, fetch/decrypt blobs, train, encrypt, mint
+- Local storage fallback for dev/live runs when 0G Storage is unavailable
+- Live two-contributor runner in `aggregator/demo.ts`
 
-![Current siloed fine-tuning](docs/diagrams/before-siloed.png)
+Not yet implemented:
 
-> Trader A trains on 30% of the data → `LoRA_A`
-> Trader B trains on 40% of the data → `LoRA_B`
-> Trader C trains on 50% of the data → `LoRA_C`
-> Nobody sees anyone else's data — but nobody benefits from it either.
-
-### After — With FFE (federated / joint training)
-
-All three encrypt their data to a TEE enclave. The enclave decrypts, combines,
-and trains **one shared LoRA** on the union. Everyone gets the same strong model.
-
-![With FFE — joint training](docs/diagrams/after-ffe.png)
-
-> **Before:** 3 weak siloed models.
-> **After:** 1 strong shared model trained on all data, fully private.
+- Real Tapp enclave attestation enforcement
+- Staking and slashing
+- Quality Gate and post-training backstop
+- CLI package for non-developer users
 
 ---
 
 ## Architecture
 
-### v1 — Joint Training mode
+### v1 — Joint Training Mode
 
-We deliberately picked the simpler architecture for v1. Federated rounds
-(iterative LoRA-delta aggregation) are v2.
+FFE v1 deliberately uses joint training: the aggregator combines accepted
+datasets and trains one LoRA. Multi-round federated LoRA delta aggregation is a
+future mode.
 
+```text
+Contributor A  -> encrypt JSONL_A to aggregator pubkey -> 0G Storage
+Contributor B  -> encrypt JSONL_B to aggregator pubkey -> 0G Storage
+Contributor C  -> encrypt JSONL_C to aggregator pubkey -> 0G Storage
+                                                               |
+                                                               v
+                         Aggregator
+                         1. observe QuorumReached
+                         2. fetch encrypted blobs
+                         3. decrypt with aggregator X25519 key
+                         4. concatenate JSONL
+                         5. train one shared LoRA through 0G fine-tuning
+                         6. encrypt LoRA
+                         7. seal LoRA key for each contributor
+                         8. mint INFT
+                                                               |
+                                                               v
+                         ERC-7857-style INFT
+                         modelBlobHash + sealedKey per contributor
+                                                               |
+                         +-------------+-------------+
+                         v             v             v
+                    Contributor A Contributor B Contributor C
+                    Base + LoRA   Base + LoRA   Base + LoRA
 ```
-Contributor A  ──► encrypt JSONL_A to AggTEE pubkey ──► 0G Storage
-Contributor B  ──► encrypt JSONL_B to AggTEE pubkey ──► 0G Storage
-Contributor C  ──► encrypt JSONL_C to AggTEE pubkey ──► 0G Storage
-                                                              │
-                                                              ▼
-                          ┌──────────────────────────────────────┐
-                          │     Aggregator TEE (0G Tapp)         │
-                          │  1. fetch encrypted blobs            │
-                          │  2. decrypt inside enclave           │
-                          │  3. Quality Gate per contributor     │
-                          │  4. concat → train ONE LoRA          │
-                          │  5. encrypt LoRA, seal keys per      │
-                          │     contributor                      │
-                          │  6. attest + sign                    │
-                          └──────────────┬───────────────────────┘
-                                         │
-                                         ▼
-                          ERC-7857 INFT minted on 0G Chain
-                          owners: [A, B, C]
-                          sealedKey per owner
-                                         │
-                ┌────────────────────────┼────────────────────────┐
-                ▼                        ▼                        ▼
-        Contributor A            Contributor B            Contributor C
-        Base + LoRA_ABC          Base + LoRA_ABC          Base + LoRA_ABC
-```
 
-### Component map
+### Components
 
-| Layer | What it is | Approx size |
-|---|---|---|
-| **SDK** (`@notmartin/ffe`) | TS/Python library — three calls: `openSession`, `submit`, `download` | ~150 LoC |
-| **CLI** | `npx ffe …` wrapper for non-developers | ~100 LoC |
-| **Coordinator contract** | Solidity on 0G Chain — session lifecycle, hash commits, slashing | ~300 LoC |
-| **INFT minter** | Wraps `0g-agent-nft` (ERC-7857) for multi-owner joint output | ~100 LoC |
-| **Aggregator service** | Rust/Python in 0G Tapp enclave — fetch, decrypt, Quality Gate, train, encrypt | ~600 LoC |
-| **Demo app** | 3 mock contributors, synthetic dataset, before/after metrics | ~300 LoC |
-
-**Total: ~1,550 LoC.** The SDK is the visible deliverable — what other devs
-`npm install` to plug FFE into their own apps.
-
----
-
-## End-to-end flow (3-trader example)
-
-| Time | Event |
+| Path | Purpose |
 |---|---|
-| T+0 | Trader A opens session: `npx ffe session create --base Qwen3-32B --participants 0xA,0xB,0xC --quorum 3` |
-| T+5 | Trader A encrypts data to aggregator pubkey, uploads to 0G Storage, commits hash on chain |
-| T+8 | Trader B does the same |
-| T+15 | Trader C submits → quorum hit → contract emits `QuorumReached` |
-| T+15 | Aggregator service triggers; pulls blobs, decrypts in TEE |
-| T+18 | Quality Gate runs — per-contributor mini-LoRA scored against held-out eval set; bad contributors filtered/slashed |
-| T+20 | Joint LoRA trained on union of accepted data |
-| T+45 | Post-training validation; LoRA encrypted, sealed keys generated per owner |
-| T+46 | INFT minted; all 3 contributors notified |
-| T+50 | Each contributor decrypts with their wallet key, loads `Base + LoRA_ABC` |
+| `sdk/` | `@notmartin/ffe` SDK: crypto, storage, coordinator, INFT, `FFE` client |
+| `contracts/` | Solidity Coordinator and INFT minter contracts |
+| `aggregator/` | Event listener, blob processor, training bridge, minter, live runner |
+| `docs/diagrams/` | Before/after architecture images |
 
 ---
 
-## Defense against bad data
+## How To Run
 
-Three layers, all required for v1.
+### 1. Install dependencies
 
-### Layer 1 — Staked permissioned access
-Every contributor locks a stake before joining. Bad behavior loses the stake.
-Slashing is triggered by a TEE-signed rejection certificate posted on-chain.
+From the repo root:
 
-```solidity
-function joinSession(uint256 sessionId) payable {
-    require(msg.value >= MIN_STAKE);
-    require(whitelist[sessionId][msg.sender]);
-    stakes[sessionId][msg.sender] = msg.value;
-}
-
-function slashWithProof(
-    address contributor,
-    bytes calldata rejectionCert,
-    bytes calldata teeAttestation
-) external {
-    require(verifyTEESignature(rejectionCert, teeAttestation));
-    uint256 amount = stakes[sessionId][contributor];
-    stakes[sessionId][contributor] = 0;
-    // distribute slashed stake to honest contributors
-}
+```bash
+pnpm install
 ```
 
-### Layer 2 — Quality Gate (pre-training filter, inside TEE)
+### 2. Configure secrets locally
 
-```python
-for contributor_i in contributors:
-    mini_lora_i = train_lora(base, data_i, epochs=1)
-    score_i    = evaluate(mini_lora_i, public_eval_set)
+Create a local env file:
 
-filtered = [i for i in contributors
-            if score_i >= median(scores) - threshold]
-
-# Slash filtered-out contributors via TEE-signed rejection cert
-# Train joint LoRA only on `filtered` contributors' data
+```bash
+cd aggregator
+cp .env.example .env
 ```
 
-### Layer 3 — Post-training backstop
-After joint training, the LoRA is benchmarked. If it fails to improve over the
-solo baselines, the session aborts: contributors get partial refunds, the last
-submitter loses extra stake. Catches sophisticated poisoning that slipped
-through Layer 2.
+Fill in `aggregator/.env`:
+
+```bash
+FFE_LIVE_WALLET_1=0x...
+FFE_LIVE_WALLET_2=0x...
+AGG_EVM_KEY=0x...
+AGG_X25519_KEY=...
+
+COORDINATOR_ADDRESS=0x840C3E83A5f3430079Aff7247CD957c994076015
+INFT_ADDRESS=0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471
+
+RPC_URL=https://evmrpc.0g.ai
+FT_RPC_URL=https://evmrpc.0g.ai
+STORAGE_INDEXER_URL=https://indexer-storage-testnet-turbo.0g.ai
+FT_PROVIDER_ADDRESS=0x940b4a101CaBa9be04b16A7363cafa29C1660B0d
+
+BASE_MODEL=Qwen2.5-0.5B-Instruct
+USE_REAL_0G_TRAINING=true
+```
+
+`aggregator/.env` is ignored by git. Do not pass private keys directly in the
+CLI command and do not commit `.env`.
+
+### 3. Fund the live accounts
+
+The demo uses three wallets:
+
+- contributor 1: pays for session creation and its submit transaction
+- contributor 2: pays for its submit transaction
+- aggregator: pays for fine-tuning/minting/storage-related transactions
+
+All three need OG on the target 0G network. `pnpm demo` performs a preflight
+balance check and stops before sending transactions if any account has no OG.
+
+### 4. Run the real live FFE flow
+
+```bash
+cd aggregator
+pnpm demo
+```
+
+What this does:
+
+1. Loads `aggregator/.env`
+2. Forces `USE_REAL_0G_TRAINING=true`
+3. Checks contributor and aggregator balances
+4. Creates a live on-chain FFE session
+5. Submits encrypted JSONL from contributor 1 and contributor 2
+6. Starts the aggregator
+7. Runs real 0G fine-tuning
+8. Mints an INFT with one sealed key per contributor
+9. Downloads as both contributors and verifies identical LoRA bytes
+10. Writes the LoRA to `aggregator/output/ffe-live-lora-session-<id>.bin`
+
+### Useful Commands
+
+```bash
+# Typecheck aggregator
+pnpm --filter @notmartin/ffe-aggregator typecheck
+
+# Run aggregator tests
+pnpm --filter @notmartin/ffe-aggregator test
+
+# Run only the simple live test suite
+cd aggregator
+pnpm run test:live:simple
+
+# Start the aggregator service by itself
+cd aggregator
+pnpm start
+
+# Generate a fresh aggregator X25519 keypair
+cd aggregator
+pnpm keygen
+```
 
 ---
 
-## Cryptographic flow
+## Live Runner Details
 
-**Encryption to aggregator on submit**
-- Aggregator publishes its enclave pubkey + attestation quote on chain
-- Each contributor verifies the attestation, then encrypts JSONL with X25519 to that pubkey
-- Only this specific enclave (running this specific code) can decrypt
+`aggregator/demo.ts` is the canonical live runner.
 
-**Encryption of output to all contributors**
-- TEE generates a fresh symmetric key `K`, encrypts LoRA with `K`
-- For each contributor `i`: `sealedKey_i = encrypt(K, contributor_pubkey_i)`
-- INFT mints with `[sealedKey_A, sealedKey_B, sealedKey_C]`
-- Each contributor decrypts their `sealedKey_i` with their wallet key, recovers `K`, decrypts the LoRA
+It creates ephemeral contributor X25519 keys for the run. Those public keys are
+registered in the session and later used by the aggregator to seal the LoRA AES
+key. The contributor EVM private keys are only used to pay for and sign chain
+transactions.
 
-This is exactly what ERC-7857's `sealedKey` mechanism is designed for — we're
-using the standard for the use case it was specced around.
+The aggregator X25519 key is long-lived and comes from `AGG_X25519_KEY`. Its
+derived public key is published in the session so contributors can encrypt their
+datasets before upload.
+
+During `pnpm demo`, the runner starts the aggregator by spawning `pnpm start`
+after both contributors submit. The real training path uses the 0G Compute
+TypeScript SDK from inside that aggregator process and signs with `AGG_EVM_KEY`.
+This avoids depending on a separate globally logged-in `0g-compute-cli` wallet.
 
 ---
 
-## Repo layout
+## Cryptographic Flow
 
-```
-ffe/
-├── sdk/             # @notmartin/ffe — TS library (openSession, submit, download)
-├── cli/             # npx ffe wrapper
-├── contracts/       # Coordinator + INFT minter (Solidity)
-├── aggregator/      # TEE service (Rust/Python) — runs inside 0G Tapp
-├── demo/            # 3-contributor demo app + synthetic dataset
+### Contributor -> Aggregator
+
+- Aggregator derives an X25519 public key from `AGG_X25519_KEY`.
+- Contributors encrypt JSONL bytes to that public key.
+- Encrypted blobs are uploaded to 0G Storage or the local fallback store.
+- The Coordinator stores only the blob hash commitment.
+- The aggregator decrypts only after quorum is reached.
+
+### Aggregator -> Contributors
+
+- Aggregator trains one LoRA from the combined dataset.
+- Aggregator generates a fresh AES-256 key `K`.
+- The LoRA is encrypted as `nonce || ciphertext-with-auth-tag`.
+- `K` is sealed to each contributor's X25519 public key.
+- The INFT minter stores the encrypted LoRA blob hash and parallel sealed keys.
+- Each contributor unseals their copy of `K` and decrypts the same LoRA.
+
+---
+
+## Contract Deployments
+
+Current live runner defaults:
+
+| Contract | Network | Address |
+|---|---|---|
+| Coordinator | 0G Mainnet | `0x840C3E83A5f3430079Aff7247CD957c994076015` |
+| INFTMinter | 0G Mainnet | `0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471` |
+
+Older Galileo testnet deployments may still exist in `contracts/README.md`, but
+the root live flow currently targets the addresses above.
+
+---
+
+## Repo Layout
+
+```text
+FFE/
+├── aggregator/
+│   ├── demo.ts                 # real live two-contributor FFE run
+│   ├── src/
+│   │   ├── blobProcessor.ts    # fetch/decrypt contributor blobs
+│   │   ├── eventListener.ts    # poll Coordinator for quorum sessions
+│   │   ├── trainingBridge.ts   # real 0G fine-tuning or simulation
+│   │   ├── minter.ts           # upload encrypted LoRA and mint INFT
+│   │   └── orchestrator.ts     # wires the pipeline together
+│   └── test/
+├── contracts/
+│   └── src/
+│       ├── Coordinator.sol
+│       └── INFTMinter.sol
+├── sdk/
+│   └── src/
+│       ├── ffe.ts
+│       ├── crypto/
+│       ├── coordinator/
+│       ├── inft/
+│       └── storage/
 └── docs/
-    └── diagrams/    # before-siloed.png, after-ffe.png
 ```
-
----
-
-## 0G primitives used
-
-- **0G Tapp** — aggregator enclave with attestation
-- **0G Compute (fine-tuning)** — underlying training (extends single-tenant → N-tenant)
-- **0G Storage** — encrypted dataset blobs, encrypted LoRA output
-- **ERC-7857 (INFT)** — co-owned encrypted model artifact, sealedKey per owner
-- **Sealed Inference (TeeML / TeeTLS)** — private serving of trained model
-- **0G Chain** — coordinator contract, INFT minter, slashing, settlement
-
----
-
-## Build plan (4 weeks)
-
-### Phase 0 — De-risk (Days 1–4)
-- Run 0G's `fine-tuning-example` end-to-end on testnet
-- Deploy hello-world Tapp enclave; verify attestation externally
-- Mint vanilla ERC-7857 INFT with two `sealedKey` entries; confirm both owners decrypt independently
-- Measure Tapp GPU/RAM ceiling; pick base model accordingly
-
-### Phase 1 — Walking skeleton (Days 5–9)
-Single-contributor end-to-end: SDK `openSession` + `submit` + `download`,
-minimal Coordinator (`createSession`, `submit`, `QuorumReached`), aggregator
-that fetches → decrypts → trains → encrypts.
-
-### Phase 2 — Multi-tenant joint training (Days 10–14)
-N participants, whitelist + quorum, multi-owner INFT with N sealedKeys.
-**Core thesis is now demoable.**
-
-### Phase 3 — Skin in the Game (Days 15–19)
-Stake + slash, TEE rejection certificates, Quality Gate, post-training backstop.
-
-### Phase 4 — Demo + polish (Days 20–28)
-Demo app UI, synthetic dataset that visibly benefits from pooling, Galileo
-testnet deployment, <3-min demo video, submission checklist.
-
-### Cuts if behind (in order)
-1. Layer 3 post-training backstop
-2. Automatic slashing (keep stake-locking; slash manually for demo)
-3. Quality Gate degraded to data-size sanity checks
-4. Drop to 2 contributors instead of 3
-5. Drop CLI; SDK + demo app only
-
-**Don't cut:** multi-owner INFT, encrypted-to-enclave submit, end-to-end demo.
-Those *are* the pitch.
 
 ---
 
 ## Roadmap
 
-### v1 — hackathon ship
-Joint Training mode • permissioned + staking • Quality Gate •
-post-training validation • TEE-signed rejection certs • multi-owner INFT •
-SDK + CLI + reference aggregator + demo.
+### v1
 
-### v2 — Federated mode + privacy
-Multi-round LoRA-delta aggregation • differential privacy • async / dropout-tolerant
-rounds (M-of-N quorum) • robust aggregation (median, trimmed-mean, Krum).
+- Joint training mode
+- Multi-owner encrypted output
+- Real 0G fine-tuning integration
+- TEE/Tapp attestation hardening
+- SDK + reference aggregator + live demo
 
-### v3 — Ecosystem
-Reputation registry (ERC-8004) • skill marketplace integration •
-OpenClaw extension (`@notmartin/ffe-openclaw`) • cross-base-model support beyond Qwen.
+### v2
 
----
+- Quality Gate
+- Staking and slashing
+- TEE-signed rejection certificates
+- Post-training validation
+- Dropout-tolerant M-of-N sessions
 
-## Use cases
+### v3
 
-1. **Cross-trading-desk slippage / market-impact model** — prop desks pool fill
-   data without exposing strategies. Strong fit for 0G's crypto-native audience.
-2. **Enterprise cross-department LLM** — compliance-blocked silos contribute privately.
-3. **DeFi cross-protocol exploit / risk model** — protocols pool exploit patterns.
-4. **Pharma / research consortia** — labs pool trial outcomes without leaking IP.
-5. **Community-trained models** — trustless Outlier/Scale; data co-ops own the upside.
-6. **Rare-disease diagnostic models** — regional hospitals pool clinical notes
-   without violating HIPAA. Best demo pick for the 3-min video.
-
----
-
-## Open questions
-
-1. **Fine-tuning is testnet-only on 0G today.** Hackathon ships on testnet;
-   mainnet is a downstream dependency on 0G's roadmap.
-2. **Tapp memory/GPU limits.** Need to confirm a Tapp instance can train
-   Qwen3-32B's LoRA on a few-thousand-sample joint dataset. Fallback: Qwen2.5-0.5B.
-3. **Aggregator pubkey publishing pattern.** Contributor must verify the TEE
-   attestation matches the published code hash before encrypting.
-4. **ERC-7857 sealedKey for multi-party output.** Standard is designed for
-   transfer between two parties; we use the same mechanism for N-party initial
-   mint. Worth confirming with the 0G team.
-5. **Sophisticated data poisoning is an open research problem.** Quality Gate
-   catches obvious cases; v1 doesn't claim Byzantine robustness.
-
----
-
-## Submission checklist
-
-- [ ] Public GitHub repo with README + setup instructions
-- [ ] Architecture diagrams (before / after / usage)
-- [x] Coordinator deployed on Galileo testnet — [`0x4Dd446F51126d473070444041B9AA36d3ae7F295`](https://chainscan-galileo.0g.ai/address/0x4Dd446F51126d473070444041B9AA36d3ae7F295)
-- [ ] INFT minter deployed on Galileo testnet
-- [ ] Demo video under 3 minutes
-- [ ] Live demo link
-- [ ] Working example agent built using FFE
-- [ ] Team contacts (Telegram/X)
-- [ ] List of 0G protocol features / SDKs used
+- Multi-round federated LoRA delta aggregation
+- Differential privacy
+- Robust aggregation methods such as median, trimmed mean, or Krum
+- Reputation and marketplace integrations
 
 ---
 
 ## References
 
-- **ERC-7857 (INFT)** — co-owned encrypted-artifact NFT standard with `sealedKey`
-- **0G Tapp** — TEE enclave runtime with attestation
-- **0G Compute / Fine-tuning** — single-tenant LoRA training (the primitive FFE extends)
-- **0G Storage** — content-addressed encrypted blob store
-- **0G Chain** — settlement layer for the Coordinator + INFT minter
-- **Sealed Inference (TeeML / TeeTLS)** — private serving for the resulting model
-- **LoRA: Low-Rank Adaptation of Large Language Models** — Hu et al., 2021
-- **Federated Learning** — McMahan et al., 2017 (the literature FFE productizes onto 0G)
+- ERC-7857 / INFT-style encrypted model ownership
+- 0G Compute fine-tuning
+- 0G Storage
+- 0G Chain
+- LoRA: Low-Rank Adaptation of Large Language Models
+- Federated Learning: McMahan et al., 2017
 
 ---
 
-*Working name: **FFE** — Federated Fine-tuning Extension.*
-*Pitch: 0G's fine-tuning today is for one user. FFE extends it to many — without anyone seeing anyone else's data.*
+Working name: **FFE** — Federated Fine-tuning Extension.

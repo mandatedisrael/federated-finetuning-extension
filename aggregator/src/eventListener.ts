@@ -61,7 +61,19 @@ export function startEventListener(
           if (oldest !== undefined) seen.delete(oldest);
         }
 
-        const sessionInfo = await coordinatorClient.getSession(sessionId);
+        let sessionInfo;
+        try {
+          sessionInfo = await coordinatorClient.getSession(sessionId);
+        } catch (err) {
+          // Skip sessions that don't exist yet
+          if (
+            err instanceof Error &&
+            err.message.includes("SessionNotFound")
+          ) {
+            continue;
+          }
+          throw err;
+        }
 
         // Only process sessions that have reached quorum
         if (sessionInfo.status !== 1) continue; // 1 = SessionStatus.QuorumReached

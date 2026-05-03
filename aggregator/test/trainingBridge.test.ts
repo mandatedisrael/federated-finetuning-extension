@@ -5,6 +5,7 @@
 
 import {describe, it, expect, beforeEach} from "vitest";
 import {trainLoraAdapter, type TrainingResult} from "../src/trainingBridge";
+import {crypto} from "@notmartin/ffe";
 import {writeFileSync} from "fs";
 import {tmpdir} from "os";
 import {join} from "path";
@@ -33,7 +34,7 @@ describe("TrainingBridge", () => {
     expect(result.aesKey).toBeInstanceOf(Uint8Array);
     expect(result.aesKey.length).toBe(32);
     expect(result.encryptedAdapter).toBeInstanceOf(Uint8Array);
-    // nonce(12) + authTag(16) + ciphertext(>0)
+    // nonce(12) + ciphertext-with-auth-tag(>16)
     expect(result.encryptedAdapter.length).toBeGreaterThan(28);
     expect(result.rawAdapterJson).toBeTruthy();
 
@@ -43,6 +44,23 @@ describe("TrainingBridge", () => {
     expect(meta.rank).toBe(8);
     expect(meta.mode).toBe("tee_simulation");
     expect(meta.tee_attestation).toBeDefined();
+  });
+
+  it("should encrypt adapters in the SDK download format", async () => {
+    const result = await trainLoraAdapter({
+      jsonlPath: tempJsonlPath,
+      baseModel: "Qwen/Qwen2.5-0.5B",
+      sessionId: 1n,
+      tempDir: tmpdir(),
+    });
+
+    const nonce = result.encryptedAdapter.slice(0, crypto.AES_NONCE_BYTES);
+    const ciphertext = result.encryptedAdapter.slice(crypto.AES_NONCE_BYTES);
+    const decrypted = crypto.aeadDecrypt(result.aesKey, {nonce, ciphertext});
+    const meta = JSON.parse(new TextDecoder().decode(decrypted));
+
+    expect(meta.session_id).toBe(1);
+    expect(meta.mode).toBe("tee_simulation");
   });
 
   it("should produce unique AES keys across sessions", async () => {

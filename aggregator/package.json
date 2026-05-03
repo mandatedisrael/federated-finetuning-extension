@@ -24,10 +24,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:live": "FFE_LIVE_AGG=1 vitest run",
+    "test:live:simple": "FFE_LIVE_AGG=1 vitest run test/live/simple-local.live.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "start": "node dist/index.js",
-    "keygen": "tsx scripts/keygen.ts"
+    "start": "set -a; [ -f .env ] && . ./.env; set +a; pnpm build >/dev/null && node dist/start.js",
+    "keygen": "tsx scripts/keygen.ts",
+    "demo": "set -a; [ -f .env ] && . ./.env; set +a; tsx demo.ts"
   },
   "dependencies": {
     "@0gfoundation/0g-compute-ts-sdk": "^0.8.0",
@@ -37,6 +39,7 @@
     "@noble/hashes": "^1.5.0",
     "@notmartin/ffe": "workspace:*",
     "ethers": "^6.13.1",
+    "form-data": "^4.0.5",
     "viem": "^2.21.0"
   },
   "devDependencies": {

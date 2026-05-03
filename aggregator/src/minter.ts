@@ -142,7 +142,7 @@ export async function sealDataKeyForContributor(
 
 /**
  * Serialize a sealed key to the 92-byte wire format.
- * Wire format: [ephemeralPubkey (32)] + [nonce (16)] + [ciphertext (32)] + [tag (16)]
+ * Wire format: [ephemeralPubkey (32)] + [nonce (12)] + [ciphertext+tag (48)]
  */
 export function sealedKeyToWireFormat(sealedEnvelope: Uint8Array): Uint8Array {
   if (sealedEnvelope.length !== 92) {
