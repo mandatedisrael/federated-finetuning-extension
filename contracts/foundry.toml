@@ -20,3 +20,4 @@ int_types = "long"
 
 [rpc_endpoints]
 galileo = "${GALILEO_RPC_URL}"
+mainnet = "https://evmrpc.0g.ai"
