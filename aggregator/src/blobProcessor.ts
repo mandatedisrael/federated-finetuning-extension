@@ -19,6 +19,8 @@ export interface BlobProcessorOptions {
   sessionId: bigint;
   /** Temporary directory for JSONL files */
   tempDir: string;
+  /** Local fallback directory for blob storage when 0G is unavailable */
+  localStorageDir?: string;
 }
 
 export interface BlobProcessResult {
@@ -55,6 +57,7 @@ export async function processBlobsToJsonl(
   // Initialize 0G Storage client (read-only, no wallet needed for download)
   const storageClient = new storage.ZeroGStorage({
     indexerRpc: options.storageIndexerUrl,
+    ...(options.localStorageDir ? {localFallbackDir: options.localStorageDir} : {}),
   });
 
   // Download and decrypt each blob

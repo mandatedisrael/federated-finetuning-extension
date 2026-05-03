@@ -22,6 +22,8 @@ export interface MinterOptions {
   rpcUrl: string;
   /** 0G Storage indexer URL */
   storageIndexerUrl: string;
+  /** Local fallback directory for blob storage when 0G is unavailable */
+  localStorageDir?: string;
 }
 
 export interface MintingPayload {
@@ -69,6 +71,7 @@ export async function mintLoraNFT(
     privateKey: options.aggregatorEVMPrivateKey,
     evmRpc: options.rpcUrl,
     indexerRpc: options.storageIndexerUrl,
+    ...(options.localStorageDir ? {localFallbackDir: options.localStorageDir} : {}),
   });
 
   const uploadResult = await storageClient.upload(payload.encryptedLoraAdapter);

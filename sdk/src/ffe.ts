@@ -29,12 +29,17 @@ export interface FFEOptions {
     rpcUrl?: string;
     /** 0G Storage EVM RPC. Defaults to Galileo. */
     storageEvmRpc?: string;
-    /** 0G Storage indexer URL. Defaults to the public testnet indexer. */
+    /** 0G Storage indexer URL. Defaults to the public mainnet indexer. */
     storageIndexerRpc?: string;
     /**
+     * Local directory used as fallback blob storage when 0G Storage is
+     * unavailable. Blobs are stored as `<dir>/<keccak256(content)>.bin`.
+     * All participants must share the same directory (single-machine demo).
+     */
+    localStorageFallbackDir?: string;
+    /**
      * How long to wait for createSession / setAggregatorPubkey transactions
-     * before giving up. Defaults to 120s — Galileo block times are ~2s but
-     * indexer + RPC propagation can lag.
+     * before giving up. Defaults to 120s.
      */
     txTimeoutMs?: number;
 }
@@ -234,6 +239,7 @@ export class FFE {
             privateKey: options.privateKey,
             ...(options.storageEvmRpc ? {evmRpc: options.storageEvmRpc} : {}),
             ...(options.storageIndexerRpc ? {indexerRpc: options.storageIndexerRpc} : {}),
+            ...(options.localStorageFallbackDir ? {localFallbackDir: options.localStorageFallbackDir} : {}),
         });
     }
 

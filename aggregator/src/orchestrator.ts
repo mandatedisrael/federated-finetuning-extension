@@ -108,6 +108,7 @@ async function handleQuorumReachedEvent(
         aggregatorPrivateKey: config.config.x25519PrivateKey,
         sessionId,
         tempDir: config.config.tempDir,
+        localStorageDir: config.config.localStorageDir,
       }
     );
 
@@ -149,6 +150,7 @@ async function handleQuorumReachedEvent(
         inftMinterAddress: config.config.inftMinterAddress,
         rpcUrl: config.config.rpcUrl,
         storageIndexerUrl: config.config.storageIndexerUrl,
+        localStorageDir: config.config.localStorageDir,
       });
 
       console.log(`[Orchestrator] Session ${sessionId} complete: txHash=${mintResult.txHash}`);

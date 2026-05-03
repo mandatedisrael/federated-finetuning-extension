@@ -28,6 +28,8 @@ export interface AggregatorConfig {
   trainingTimeoutMs: number;
   /** Maximum concurrent training sessions */
   maxConcurrentSessions: number;
+  /** Local fallback directory for blob storage when 0G Storage is unavailable */
+  localStorageDir: string;
   /** Use real 0G fine-tuning service (requires funded wallet on ft network) */
   useReal0GTraining: boolean;
   /** RPC URL for the 0G fine-tuning network (mainnet default) */
@@ -102,6 +104,8 @@ export function loadConfig(): AggregatorConfig {
     throw new Error("MAX_CONCURRENT_SESSIONS must be a valid number >= 1");
   }
 
+  const localStorageDir = process.env.FFE_LOCAL_STORAGE_DIR || "/tmp/ffe-storage";
+
   const useReal0GTraining =
     (process.env.USE_REAL_0G_TRAINING ?? "false").toLowerCase() === "true";
   const ftRpcUrl = process.env.FT_RPC_URL ?? "https://evmrpc.0g.ai";
@@ -123,5 +127,6 @@ export function loadConfig(): AggregatorConfig {
     useReal0GTraining,
     ftRpcUrl,
     ftProviderAddress,
+    localStorageDir,
   };
 }

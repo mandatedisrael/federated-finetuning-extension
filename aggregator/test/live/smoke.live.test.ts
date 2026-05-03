@@ -30,9 +30,10 @@ import {loadConfig} from "../../src/config";
 
 const skipLive = !process.env.FFE_LIVE_AGG;
 
-const COORDINATOR = "0x840C3E83A5f3430079Aff7247CD957c994076015";
-const INFT      = "0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471";
-const RPC       = "https://evmrpc.0g.ai";
+const COORDINATOR   = "0x840C3E83A5f3430079Aff7247CD957c994076015";
+const INFT          = "0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471";
+const RPC           = "https://evmrpc.0g.ai";
+const LOCAL_STORAGE = process.env.FFE_LOCAL_STORAGE_DIR ?? "/tmp/ffe-storage";
 
 // Training can take up to 10 min; give the whole pipeline 15 min
 const PIPELINE_TIMEOUT_MS = 15 * 60 * 1000;
@@ -100,12 +101,14 @@ describe.skipIf(skipLive)(
         coordinatorAddress: COORDINATOR as `0x${string}`,
         rpcUrl: RPC,
         storageEvmRpc: RPC,
+        localStorageFallbackDir: LOCAL_STORAGE,
       });
       ffe2 = new FFE({
         privateKey: wallet2Key,
         coordinatorAddress: COORDINATOR as `0x${string}`,
         rpcUrl: RPC,
         storageEvmRpc: RPC,
+        localStorageFallbackDir: LOCAL_STORAGE,
       });
 
       // ── Step 1: create session, set aggregator pubkey inline ──────────────
