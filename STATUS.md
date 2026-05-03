@@ -2,42 +2,62 @@
 
 > Where we left off. Read this first when picking back up.
 
-Last updated: May 2, 2026 (Aggregator A.1-A.7 scaffold complete).
+Last updated: May 3, 2026 — mainnet redeploy, aggregator hardening, A.4 real TS training, local storage fallback.
 
 ---
 
 ## Pick up here next
 
-**Aggregator A.1-A.7 complete (scaffold + stub implementations).** All components have unit tests and proper TypeScript stubs. Ready for:
-1. **A.2 live tests** — poll real Coordinator for QuorumReached events
-2. **A.3 implementation** — integrate 0G Storage SDK for blob download/decrypt
-3. **A.4 implementation** — integrate 0G fine-tuning service for actual LoRA training
-4. **A.5 live tests** — test minting on Galileo with real INFTMinter
-5. **A.6 integration** — wire everything in orchestrator, test error handling
-6. **A.7 smoke test** — end-to-end 2-wallet run on Galileo
+**Run the E2E smoke test** to confirm the full pipeline works end-to-end:
 
-### Aggregator – Status (7 commits planned, 1 complete)
+```bash
+cd aggregator && \
+  FFE_LIVE_AGG=1 \
+  AGG_EVM_KEY=0x5c5f5927d9a0c7dca4575fe235da49cb91fc689495554ddd458dfa9d410b8b8a \
+  AGG_X25519_KEY=9a7fd19ff9ac9eefc6b0ec60b27cc31db75291fb91ea5563db2e3cd8d0bca602 \
+  COORDINATOR_ADDRESS=0x840C3E83A5f3430079Aff7247CD957c994076015 \
+  INFT_ADDRESS=0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471 \
+  FFE_LIVE_WALLET_1=0xc5509a5827e17a1cd286d85d5084bb8fdb37112cee4f7683508bd2ed422916fe \
+  FFE_LIVE_WALLET_2=0x2fe8c13fcebc3c4702a29238323540bdabccf2ef29976fedbcb828e4f4bd5167 \
+  FFE_LOCAL_STORAGE_DIR=/tmp/ffe-storage \
+  pnpm test:live
+```
 
-**Stack:** Node.js (orchestration, events, crypto, 0G Storage) + Python subprocess (LoRA training only via 0G fine-tuning service).
+After that passes, the critical path is:
+1. **Quality Gate** — per-contributor eval, `score ≥ median − 1·MAD`, rejection certs, `slashWithProof`. Zero code exists.
+2. **CLI** — `ffe session create / submit / download` wrappers over the SDK.
+3. **Demo app** — Next.js UI: 3 contributor cards, session timeline, before/after metrics.
+4. **Demo video** — <3 min walkthrough. Needs CLI or demo app first.
 
-| # | Task | Status | Tests |
+---
+
+## Aggregator — current state
+
+**Stack:** TypeScript strict, ESM+CJS, viem, `@notmartin/ffe`, `@0gfoundation/0g-compute-ts-sdk`. No Python subprocess.
+
+| # | Component | Status | Tests |
 |---|---|---|---|
-| A.1 | Scaffold + config | ✅ | config loading |
-| A.2 | Event listener | ✅ stub | 3 unit |
-| A.3 | Blob processor | ✅ stub | 4 unit |
-| A.4 | Training bridge | ✅ stub | 4 unit |
-| A.5 | Minter | ✅ stub | 4 unit |
-| A.6 | Orchestrator | ✅ stub | 5 unit |
-| A.7 | Smoke test | ✅ stub | 6 tests (gated by `FFE_LIVE_AGG=1`) |
+| A.1 | Scaffold + config | ✅ | config validation |
+| A.2 | Event listener | ✅ live-tested | 3 unit + 5 live (gated) |
+| A.3 | Blob processor | ✅ live-tested | 7 unit + 2 live (gated) |
+| A.4 | Training bridge | ✅ real TS | 4 unit — 0G compute SDK or TEE simulation |
+| A.5 | Minter | ✅ live-tested | 5 unit |
+| A.6 | Orchestrator | ✅ wired | 5 unit |
+| A.7 | Smoke test | ✅ rewritten | 6 live (gated by `FFE_LIVE_AGG=1`) |
 
-**Totals: 20 unit tests + 6 skipped live tests, all passing.**
+**Totals: 24 deterministic + 13 skipped live tests, all passing.**
 
-**Notes:**
-- All modules export clean TypeScript interfaces
-- Orchestrator wires A.2→A.3→A.4→A.5 pipeline
-- Per-session error isolation and structured logging
-- Python `py/train.py` stub outputs valid JSON
-- 0G Storage, minting, and training calls marked `[A.N TODO]`
+### Hardening done (May 2–3)
+
+- **A.4 real**: `trainingBridge.ts` rewritten to use `@0gfoundation/0g-compute-ts-sdk` directly — no Python subprocess. `USE_REAL_0G_TRAINING=true` calls the real service; default runs TEE simulation with deterministic fingerprints + mock TDX attestation.
+- **Local storage fallback**: `ZeroGStorage` tries 0G mainnet first; falls back to local file store (`localFallbackDir`) on any upload/download failure. Hash = `keccak256(content)` — content-addressed, same format as 0G Merkle root. Needed because 0G mainnet storage has zero connected peers.
+- **Retry**: blob downloads retry with exponential backoff (1s → 2s → 4s, 3 attempts).
+- **Timeout**: training capped at `TRAINING_TIMEOUT_MS` (default 1h), killed with SIGTERM.
+- **Concurrency**: orchestrator caps at `MAX_CONCURRENT_SESSIONS` (default 3).
+- **Pubkey validation**: 32-byte X25519 check before passing to crypto.
+- **Dedup**: event listener `seen` Set capped at 10,000 entries.
+- **Keygen script**: `pnpm keygen` generates a fresh X25519 keypair for the aggregator.
+- **Smoke test**: rewritten with proper messages-format JSONL, aggregator pubkey set inline, polls `hasMinted()`, verifies both contributors decrypt to identical bytes.
 
 ---
 
@@ -47,117 +67,83 @@ Last updated: May 2, 2026 (Aggregator A.1-A.7 scaffold complete).
 
 | | Status |
 |---|---|
-| 0.1 — 0G fine-tuning example end-to-end | ✅ confirmed working |
-| 0.3 — multi-owner sealedKey crypto pattern | ✅ proven (`phase0/inft-spike/test.ts`) |
-| 0.2 — TEE attestation | ⏸ parked — Tapp requires Alibaba Cloud setup ($50–150 + KYC). Plan: ask 0G for a sponsored instance via Discord; fallback to mock for dev, real Tapp for final demo. |
+| 0.1 — 0G fine-tuning confirmed working | ✅ `fine_tuning_example.py` ran; `lora_*.bin` downloaded |
+| 0.3 — multi-owner sealedKey crypto | ✅ proven (`phase0/inft-spike/test.ts`) |
+| 0.2 — TEE attestation | ⏸ parked — Tapp needs Alibaba Cloud KYC. Mock TEE acceptable for dev. |
 | 0.4 — Tapp GPU/RAM ceiling | ⏸ depends on 0.2 |
 
-### Coordinator contract
+### Coordinator contract — 0G mainnet
 
-- Deployed on Galileo testnet at **`0x4Dd446F51126d473070444041B9AA36d3ae7F295`**
-- 25 foundry tests, all passing
-- Source: `contracts/src/Coordinator.sol`, interface in `contracts/src/interfaces/ICoordinator.sol`
+- **Address:** `0x840C3E83A5f3430079Aff7247CD957c994076015`
+- Chain: 0G mainnet (16661), RPC: `https://evmrpc.0g.ai`
+- 25 Foundry tests, all passing
 
-### INFTMinter contract
+### INFTMinter contract — 0G mainnet
 
-- Deployed on Galileo testnet at **`0x8c71F8176720bD0888e83B822FD7CE0164C67567`**
-- Minter address (deployer wallet): `0xB3AD3a10d187cbc4ca3e8c3EDED62F8286F8e16E`
-- 18 foundry tests, all passing (43 total in suite)
-- Source: `contracts/src/INFTMinter.sol`, interface in `contracts/src/interfaces/IINFTMinter.sol`
-- Note: minter = deployer wallet for now; update when aggregator address is known
+- **Address:** `0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471`
+- Minter (deployer): `0xE74096f8EF2b08AA7257Ac98459c624E1BF9a548`
+- 18 Foundry tests, all passing (43 total)
 
 ### SDK (`@notmartin/ffe`)
-
-- npm name: **`@notmartin/ffe`** (under your scope)
-- Package: `sdk/`
-- Stack: TypeScript strict, ESM+CJS dual build, viem, @noble/* crypto, @0gfoundation/0g-ts-sdk + ethers
 
 | Part | Status | Tests |
 |---|---|---|
 | 1 — Crypto module | ✅ | 23 unit |
-| 2.1 — Coordinator ABI vendored | ✅ | 7 unit |
-| 2.2 — Typed Coordinator client | ✅ | 12 unit |
-| 2.3 — Live tests vs deployed Coordinator | ✅ | 6 live |
-| 3.1 — `ZeroGStorage` (real, no mocks) | ✅ | — |
-| 3.2 — Live storage round-trip test | ✅ | 2 live |
-| 3.3 — `FFE` class + `openSession()` | ✅ | 18 unit |
-| 3.4 — Live `openSession` test | ✅ | 2 live |
-| 4.1 — `FFE.submit()` implementation + deterministic tests | ✅ | 15 unit |
-| 4.2 — Live end-to-end test for `submit()` | ✅ | 2 live |
-| 5.1 — INFTMinter ABI vendored | ✅ | — |
-| 5.2 — INFTMinter typed client + tests | ✅ | 8 unit |
-| 5.3 — SealedKey byte serialization | ✅ | 4 unit |
-| 5.4 — `FFE.download()` implementation + deterministic tests | ✅ | 12 unit |
-| 5.5 — Live end-to-end test for `download()` | ✅ | 2 live |
+| 2.1–2.3 — Coordinator client + live tests | ✅ | 25 unit + 6 live |
+| 3.1–3.4 — ZeroGStorage + FFE.openSession | ✅ | 18 unit + 4 live |
+| 4.1–4.2 — FFE.submit + live test | ✅ | 15 unit + 2 live |
+| 5.1–5.5 — INFTMinter + FFE.download + live test | ✅ | 24 unit + 2 live |
 
-**Totals: 103 deterministic + ~16 live tests, all passing.**
-
-### Aggregator (`@notmartin/ffe-aggregator`)
-
-- npm name: **`@notmartin/ffe-aggregator`**
-- Package: `aggregator/`
-- Stack: TypeScript strict, ESM+CJS dual build, viem, @notmartin/ffe, Node.js subprocess
-- **A.1-A.7 scaffold complete**
+**103 deterministic + ~16 live tests, all passing.**
 
 ---
 
 ## Pending
 
-| Item | Notes |
-|---|---|
-| **A.2-A.7 implementations** | Live 0G Storage integration, 0G fine-tuning service calls, minting |
-| **CLI** | `ffe session create`, `ffe submit`, `ffe download` wrappers |
-| **Quality Gate** | Per-contributor eval, rejection certificates, TEE signing |
-| **Demo app** | Next.js UI: 3 contributors, before/after metrics, live session trigger |
-| **Live E2E sweep** | 3-party dry-run on Galileo + demo video |
+| Item | Effort | Notes |
+|---|---|---|
+| **E2E smoke test** | Ready to run | Needs `USE_REAL_0G_TRAINING=true` for real training, or runs simulation |
+| **Quality Gate** | 2–3 days | Per-contributor eval, MAD threshold, rejection certs, slashWithProof. Zero code. |
+| **CLI** | 1 day | `cli/` package. `ffe session create / submit / download`. |
+| **Demo app** | 2–3 days | Next.js. 3 contributor cards, live session, before/after metrics. |
+| **Demo video** | 1 day | <3 min. Needs CLI or demo app. |
+| **TEE attestation** | Blocked | Tapp sponsorship needed from 0G Discord. |
 
 ---
 
 ## Decision log (don't re-litigate)
 
-- **Crypto suite**: X25519 + HKDF-SHA256 + AES-256-GCM (proven in 0.3, productionized in SDK Part 1).
-- **Storage commitment**: 0G Storage Merkle root IS the on-chain `blobHash`. No separate location lookup; aggregator downloads by the hash it sees in the `Submitted` event.
-- **Mocks**: forbidden for storage / TEE / chain services. Coordinator client *unit* tests use viem's `custom` transport for encoding/decoding only — flagged for review if you want those dropped.
-- **TEE attestation**: SDK-side verification for v1, on-chain precompile is v2.
+- **Training runtime**: TypeScript via `@0gfoundation/0g-compute-ts-sdk`. No Python subprocess. `py/train.py` kept as standalone reference only.
+- **Single chain**: everything on 0G mainnet (16661). No testnet/mainnet split.
+- **Storage fallback**: 0G mainnet storage primary; local file fallback (`keccak256`-keyed) when mainnet storage unavailable (currently has 0 peers).
+- **Crypto suite**: X25519 + HKDF-SHA256 + AES-256-GCM.
+- **Storage commitment**: Merkle root (or keccak256 for local fallback) IS the on-chain `blobHash`.
 - **Quality Gate threshold**: `score_i ≥ median − 1·MAD`.
-- **Slash distribution**: pro rata to honest contributors in the same session.
-- **Base model default**: Qwen2.5-0.5B (stretch: Qwen3-32B if it fits in Tapp).
-- **Mock TEE**: Confirmed by judge as acceptable for dev; won't disqualify. Real Tapp for final demo if Alibaba Cloud sponsorship available.
+- **Slash distribution**: pro rata to honest contributors.
+- **Base model**: `Qwen2.5-0.5B-Instruct`. Fine-tuning provider: `0x940b4a101CaBa9be04b16A7363cafa29C1660B0d`.
+- **Mock TEE**: confirmed acceptable by judge for dev.
 
 ---
 
-## Live commands you'll re-use
+## Env vars — aggregator
 
-All from `sdk/` or `aggregator/`. Replace `$KEY` with a funded Galileo wallet private key.
-
-```bash
-# default (deterministic) tests — all packages
-pnpm test
-
-# live Coordinator reads (no funds)
-cd sdk && npm run test:live
-
-# live storage round-trip (gas)
-cd sdk && FFE_LIVE_STORAGE_PRIVATE_KEY=$KEY npm run test:live:storage
-
-# live openSession on Galileo (gas, 1–2 sessions per run)
-cd sdk && FFE_LIVE_OPEN_PRIVATE_KEY=$KEY npm run test:live:open
-
-# regen Coordinator ABI after a contract change
-cd sdk && npm run abi:sync
-
-# Aggregator smoke test (when ready)
-cd aggregator && FFE_LIVE_AGG=1 npm run test:live
-```
-
-Coordinator deploy (only if redeploying):
-```bash
-forge script /Users/damiafo/Documents/projects/FFE/contracts/script/DeployCoordinator.s.sol \
-  --root /Users/damiafo/Documents/projects/FFE/contracts \
-  --rpc-url https://evmrpc-testnet.0g.ai \
-  --private-key "$DEPLOYER_PRIVATE_KEY" \
-  --broadcast
-```
+| Var | Required | Default | Notes |
+|---|---|---|---|
+| `AGG_EVM_KEY` | ✅ | — | Aggregator wallet (0x-prefixed) |
+| `AGG_X25519_KEY` | ✅ | — | 32-byte X25519 private key (hex, no 0x). Run `pnpm keygen`. |
+| `COORDINATOR_ADDRESS` | ✅ | — | `0x840C3E83A5f3430079Aff7247CD957c994076015` |
+| `INFT_ADDRESS` | ✅ | — | `0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471` |
+| `FFE_LOCAL_STORAGE_DIR` | — | `/tmp/ffe-storage` | Local blob fallback directory |
+| `USE_REAL_0G_TRAINING` | — | `false` | Set `true` to call 0G fine-tuning service |
+| `FT_PROVIDER_ADDRESS` | — | `0x940b4a101CaBa9be04b16A7363cafa29C1660B0d` | Fine-tuning provider |
+| `FT_RPC_URL` | — | `https://evmrpc.0g.ai` | RPC for 0G compute network |
+| `RPC_URL` | — | `https://evmrpc.0g.ai` | Galileo RPC |
+| `STORAGE_INDEXER_URL` | — | `https://indexer-storage-standard.0g.ai` | 0G Storage indexer |
+| `TEMP_DIR` | — | `os.tmpdir()` | Scratch space for JSONL + weights |
+| `BASE_MODEL` | — | `Qwen2.5-0.5B-Instruct` | LoRA base model |
+| `TRAINING_TIMEOUT_MS` | — | `3600000` | Kill training after this ms |
+| `MAX_CONCURRENT_SESSIONS` | — | `3` | Max parallel sessions |
+| `POLL_INTERVAL_MS` | — | `5000` | QuorumReached poll interval |
 
 ---
 
@@ -165,68 +151,57 @@ forge script /Users/damiafo/Documents/projects/FFE/contracts/script/DeployCoordi
 
 | | |
 |---|---|
-| Galileo RPC | `https://evmrpc-testnet.0g.ai` |
-| Galileo chain ID | 16602 |
-| Faucet | https://faucet.0g.ai |
-| Explorer | https://chainscan-galileo.0g.ai |
-| 0G Storage indexer | `https://indexer-storage-testnet-turbo.0g.ai` |
-| Coordinator | `0x4Dd446F51126d473070444041B9AA36d3ae7F295` |
-| INFTMinter | `0x8c71F8176720bD0888e83B822FD7CE0164C67567` |
+| 0G Mainnet RPC | `https://evmrpc.0g.ai` |
+| 0G Mainnet chain ID | 16661 |
+| Explorer | `https://chainscan.0g.ai` |
+| 0G Storage indexer | `https://indexer-storage-standard.0g.ai` |
+| Fine-tuning provider | `0x940b4a101CaBa9be04b16A7363cafa29C1660B0d` |
+| Coordinator | `0x840C3E83A5f3430079Aff7247CD957c994076015` |
+| INFTMinter | `0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471` |
 
 ---
 
-## Repo layout (current)
+## Repo layout
 
 ```
 FFE/
-├── README.md              # public-facing
-├── buildPlan.md           # 4-week plan
-├── idea.md                # original brief
-├── STATUS.md              # ← this file
-├── pnpm-workspace.yaml    # monorepo config
-├── contracts/             # Foundry project
-│   ├── src/Coordinator.sol
-│   ├── test/              # 25 tests
-│   └── script/DeployCoordinator.s.sol
+├── STATUS.md
+├── buildPlan.md
+├── idea.md
+├── pnpm-workspace.yaml
+├── contracts/             # Foundry — Coordinator + INFTMinter (mainnet)
+│   ├── src/
+│   ├── test/              # 43 tests
+│   └── script/
 ├── sdk/                   # @notmartin/ffe
 │   ├── src/
-│   │   ├── crypto/        # part 1
-│   │   ├── coordinator/   # part 2
-│   │   ├── storage/       # part 3.1
-│   │   ├── ffe.ts         # part 3.3 (FFE class)
-│   │   ├── errors.ts
+│   │   ├── crypto/
+│   │   ├── coordinator/
+│   │   ├── storage/       # ZeroGStorage with local fallback
+│   │   ├── inft/
+│   │   ├── ffe.ts
 │   │   └── index.ts
-│   ├── test/              # deterministic
-│   └── test/live/         # gated by env vars
-├── aggregator/            # @notmartin/ffe-aggregator (NEW)
+│   ├── test/
+│   └── test/live/
+├── aggregator/            # @notmartin/ffe-aggregator
+│   ├── scripts/
+│   │   └── keygen.ts      # pnpm keygen → X25519 keypair
 │   ├── src/
 │   │   ├── config.ts
 │   │   ├── eventListener.ts
 │   │   ├── blobProcessor.ts
-│   │   ├── trainingBridge.ts
+│   │   ├── trainingBridge.ts  # 0G compute TS SDK, no Python
 │   │   ├── minter.ts
 │   │   ├── orchestrator.ts
 │   │   └── index.ts
 │   ├── py/
-│   │   └── train.py       # Python LoRA training stub
-│   ├── test/              # unit tests
-│   └── test/live/         # gated by FFE_LIVE_AGG=1
-├── phase0/inft-spike/     # 0.3 spike (kept as reference)
+│   │   └── train.py       # standalone reference only
+│   ├── test/
+│   └── test/live/
+│       └── smoke.live.test.ts  # full E2E pipeline test
+├── cli/                   # NOT STARTED
+├── demo/                  # NOT STARTED
+├── phase0/inft-spike/
 └── docs/
-    ├── diagrams/          # before-siloed.png, after-ffe.png
-    └── phase0-notes.md    # findings record
-```
-
----
-
-## Recent commits (most recent first)
-
-```
-d2e2596 A.1-A.7: Aggregator scaffold with full 7-commit pipeline structure
-29426e2 SDK part 5.5: live end-to-end test for FFE.download()
-c67c2d0 SDK part 5.4: FFE.download() implementation + deterministic tests
-1237e93 SDK part 5.3: SealedKey byte serialization (sealedKeyToBytes / sealedKeyFromBytes)
-6df62fc SDK part 5.2: INFTMinter typed client + tests
-3118428 SDK part 5.1: INFTMinter ABI vendored + sync script updated
-eb71df9 Deploy INFTMinter to Galileo testnet
+    └── diagrams/
 ```
