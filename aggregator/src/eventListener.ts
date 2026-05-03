@@ -36,6 +36,7 @@ export function startEventListener(
   onEvent: (payload: QuorumReachedPayload) => Promise<void>
 ): AbortController {
   const seen = new Set<bigint>();
+  const MAX_SEEN = 10_000;
   const controller = new AbortController();
 
   const coordinatorClient = coordinator.createCoordinatorClient({
@@ -53,6 +54,12 @@ export function startEventListener(
       // Check all sessions from 0 to nextSessionId-1
       for (let sessionId = 0n; sessionId < nextSessionId; sessionId++) {
         if (seen.has(sessionId)) continue;
+
+        // Prune the oldest entries when the seen set grows too large
+        if (seen.size >= MAX_SEEN) {
+          const oldest = seen.values().next().value;
+          if (oldest !== undefined) seen.delete(oldest);
+        }
 
         const sessionInfo = await coordinatorClient.getSession(sessionId);
 
@@ -77,10 +84,16 @@ export function startEventListener(
         );
         const pubkeyHexes = await Promise.all(pubkeyPromises);
 
-        // Decode pubkeys from hex to Uint8Array
-        const ownerPubkeys = pubkeyHexes.map((hex) =>
-          new Uint8Array(Buffer.from(hex.slice(2), "hex"))
-        );
+        // Decode and validate pubkeys (must be 32-byte X25519 keys)
+        const ownerPubkeys = pubkeyHexes.map((hex, idx) => {
+          const bytes = new Uint8Array(Buffer.from(hex.slice(2), "hex"));
+          if (bytes.length !== 32) {
+            throw new Error(
+              `[EventListener] Submitter ${submitters[idx]} has invalid pubkey length: expected 32, got ${bytes.length}`
+            );
+          }
+          return bytes;
+        });
 
         const payload: QuorumReachedPayload = {
           sessionId,

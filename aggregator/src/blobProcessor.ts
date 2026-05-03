@@ -65,8 +65,8 @@ export async function processBlobsToJsonl(
     try {
       console.log(`[BlobProcessor] Downloading blob ${i + 1}/${blobHashes.length}: ${blobHash}`);
 
-      // Download blob from 0G Storage by its Merkle root
-      const encryptedBlob = await storageClient.download(blobHash);
+      // Download blob from 0G Storage with exponential backoff retry
+      const encryptedBlob = await downloadWithRetry(storageClient, blobHash);
 
       // Decrypt using SDK's crypto utility
       console.log(`[BlobProcessor] Decrypting blob ${i + 1}/${blobHashes.length}`);
@@ -104,6 +104,29 @@ export async function processBlobsToJsonl(
     jsonlPath,
     blobCount: blobHashes.length,
   };
+}
+
+async function downloadWithRetry(
+  storageClient: storage.ZeroGStorage,
+  blobHash: Hash,
+  maxRetries = 3
+): Promise<Uint8Array> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await storageClient.download(blobHash);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxRetries - 1) {
+        const delayMs = 1000 * Math.pow(2, attempt);
+        console.warn(
+          `[BlobProcessor] Download attempt ${attempt + 1}/${maxRetries} failed for ${blobHash}, retrying in ${delayMs}ms`
+        );
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+    }
+  }
+  throw lastErr;
 }
 
 /**

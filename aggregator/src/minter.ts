@@ -72,6 +72,9 @@ export async function mintLoraNFT(
   });
 
   const uploadResult = await storageClient.upload(payload.encryptedLoraAdapter);
+  if (!uploadResult?.rootHash) {
+    throw new Error("[Minter] Upload to 0G Storage failed: no rootHash in response");
+  }
   console.log(`[Minter] LoRA uploaded. Blob hash: ${uploadResult.rootHash}`);
 
   // 2. Seal the adapter AES key for each contributor

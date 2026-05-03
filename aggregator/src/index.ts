@@ -11,6 +11,6 @@
 export { loadConfig, type AggregatorConfig } from "./config.js";
 export { startEventListener, type QuorumReachedPayload } from "./eventListener.js";
 export { processBlobsToJsonl, cleanupBlobJsonl, type BlobProcessorOptions, type BlobProcessResult } from "./blobProcessor.js";
-export { trainLoraAdapter, killTrainingProcess, type TrainingBridgeOptions, type TrainingResult } from "./trainingBridge.js";
+export { trainLoraAdapter, type TrainingBridgeOptions, type TrainingResult } from "./trainingBridge.js";
 export { mintLoraNFT, sealDataKeyForContributor, sealedKeyToWireFormat, type MinterOptions, type MintingPayload, type MintResult } from "./minter.js";
 export { startOrchestrator, getOrchestratorState, type OrchestratorConfig, type OrchestratorState } from "./orchestrator.js";

@@ -77,9 +77,17 @@ async function handleQuorumReachedEvent(
 ): Promise<void> {
   const {sessionId} = payload;
 
-  // Check if already processing
+  // Check if already processing or at concurrency limit
   if (state.activeSessionIds.has(sessionId)) {
     console.log(`[Orchestrator] Session ${sessionId} already processing, skipping`);
+    return;
+  }
+
+  const maxConcurrent = config.config.maxConcurrentSessions;
+  if (state.activeSessionIds.size >= maxConcurrent) {
+    console.warn(
+      `[Orchestrator] Max concurrent sessions (${maxConcurrent}) reached, deferring session ${sessionId}`
+    );
     return;
   }
 
@@ -99,7 +107,7 @@ async function handleQuorumReachedEvent(
         storageIndexerUrl: config.config.storageIndexerUrl,
         aggregatorPrivateKey: config.config.x25519PrivateKey,
         sessionId,
-        tempDir: "/tmp",
+        tempDir: config.config.tempDir,
       }
     );
 
@@ -109,10 +117,15 @@ async function handleQuorumReachedEvent(
         `[Orchestrator] A.4: Training LoRA adapter for session ${sessionId} (${blobResult.blobCount} blobs)`
       );
       const trainingResult = await trainLoraAdapter({
-        pythonScriptPath: `${process.cwd()}/py/train.py`,
         jsonlPath: blobResult.jsonlPath,
-        baseModel: "Qwen/Qwen2.5-0.5B",
+        baseModel: config.config.baseModel,
         sessionId,
+        tempDir: config.config.tempDir,
+        timeoutMs: config.config.trainingTimeoutMs,
+        useReal0GTraining: config.config.useReal0GTraining,
+        evmPrivateKey: config.config.evmPrivateKey,
+        ftRpcUrl: config.config.ftRpcUrl,
+        ftProviderAddress: config.config.ftProviderAddress,
       });
 
       // A.5: Mint INFT
