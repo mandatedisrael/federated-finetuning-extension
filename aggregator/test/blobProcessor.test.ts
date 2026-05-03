@@ -14,7 +14,7 @@ import {join} from "path";
 describe("BlobProcessor", () => {
   it("should validate matching blobHashes and ownerPubkeys lengths", async () => {
     const options = {
-      storageIndexerUrl: "https://indexer-storage-testnet-turbo.0g.ai",
+      storageIndexerUrl: "https://indexer-storage-standard.0g.ai",
       aggregatorPrivateKey: new Uint8Array(32).fill(0x01),
       sessionId: 1n,
       tempDir: tmpdir(),
@@ -32,7 +32,7 @@ describe("BlobProcessor", () => {
 
   it("should reject empty blob arrays", async () => {
     const options = {
-      storageIndexerUrl: "https://indexer-storage-testnet-turbo.0g.ai",
+      storageIndexerUrl: "https://indexer-storage-standard.0g.ai",
       aggregatorPrivateKey: new Uint8Array(32).fill(0x01),
       sessionId: 1n,
       tempDir: tmpdir(),
@@ -60,11 +60,11 @@ describe("BlobProcessor", () => {
   it("should validate 0G Storage client initialization", () => {
     // Verify that ZeroGStorage can be instantiated without a wallet (read-only)
     const storageClient = new storage.ZeroGStorage({
-      indexerRpc: "https://indexer-storage-testnet-turbo.0g.ai",
+      indexerRpc: "https://indexer-storage-standard.0g.ai",
     });
 
     expect(storageClient).toBeDefined();
-    expect(storageClient.indexerRpc).toBe("https://indexer-storage-testnet-turbo.0g.ai");
+    expect(storageClient.indexerRpc).toBe("https://indexer-storage-standard.0g.ai");
   });
 
   it("should validate crypto.decryptForRecipient is available", () => {

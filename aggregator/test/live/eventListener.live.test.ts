@@ -1,5 +1,5 @@
 /**
- * Live integration test for event listener on Galileo.
+ * Live integration test for event listener on 0G Mainnet.
  * Creates a real session, submits from 2 wallets, verifies event listener detects QuorumReached.
  * Gated by FFE_LIVE_EVENT_LISTENER=1.
  */
@@ -13,7 +13,7 @@ import {startEventListener, type QuorumReachedPayload} from "../../src/eventList
 const skipLive = !process.env.FFE_LIVE_EVENT_LISTENER;
 
 describe.skipIf(skipLive)(
-  "EventListener Live Test (Coordinator on Galileo)",
+  "EventListener Live Test (Coordinator on 0G Mainnet)",
   () => {
     let sessionId: bigint;
     let detectedPayload: QuorumReachedPayload | null = null;
@@ -25,7 +25,7 @@ describe.skipIf(skipLive)(
 
       if (!wallet1Key || !wallet2Key) {
         throw new Error(
-          "FFE_LIVE_WALLET_1 and FFE_LIVE_WALLET_2 required (funded Galileo accounts as 0x-prefixed hex)"
+          "FFE_LIVE_WALLET_1 and FFE_LIVE_WALLET_2 required (funded 0G Mainnet accounts as 0x-prefixed hex)"
         );
       }
 
@@ -38,8 +38,8 @@ describe.skipIf(skipLive)(
       // Create session using FFE SDK (wallet1 creates)
       const ffe1 = new FFE({
         privateKey: wallet1Key,
-        coordinatorAddress: "0x4Dd446F51126d473070444041B9AA36d3ae7F295" as Address,
-        rpcUrl: "https://evmrpc-testnet.0g.ai",
+        coordinatorAddress: "0x840C3E83A5f3430079Aff7247CD957c994076015" as Address,
+        rpcUrl: "https://evmrpc.0g.ai",
       });
 
       const baseModel = toHex("test-model");
@@ -76,8 +76,8 @@ describe.skipIf(skipLive)(
       // Wallet 2 submits
       const ffe2 = new FFE({
         privateKey: wallet2Key,
-        coordinatorAddress: "0x4Dd446F51126d473070444041B9AA36d3ae7F295" as Address,
-        rpcUrl: "https://evmrpc-testnet.0g.ai",
+        coordinatorAddress: "0x840C3E83A5f3430079Aff7247CD957c994076015" as Address,
+        rpcUrl: "https://evmrpc.0g.ai",
       });
 
       console.log(`[Live Test] Wallet 2 submitting data...`);
@@ -98,8 +98,8 @@ describe.skipIf(skipLive)(
       const events: QuorumReachedPayload[] = [];
 
       const controller = startEventListener(
-        "0x4Dd446F51126d473070444041B9AA36d3ae7F295" as Address,
-        "https://evmrpc-testnet.0g.ai",
+        "0x840C3E83A5f3430079Aff7247CD957c994076015" as Address,
+        "https://evmrpc.0g.ai",
         1000, // 1 second poll interval for testing
         async (payload: QuorumReachedPayload) => {
           console.log(`[Live Test] Event listener detected session ${payload.sessionId}`);
@@ -168,8 +168,8 @@ describe.skipIf(skipLive)(
       const events: QuorumReachedPayload[] = [];
 
       const controller = startEventListener(
-        "0x4Dd446F51126d473070444041B9AA36d3ae7F295" as Address,
-        "https://evmrpc-testnet.0g.ai",
+        "0x840C3E83A5f3430079Aff7247CD957c994076015" as Address,
+        "https://evmrpc.0g.ai",
         500, // Fast polling
         async (payload: QuorumReachedPayload) => {
           events.push(payload);

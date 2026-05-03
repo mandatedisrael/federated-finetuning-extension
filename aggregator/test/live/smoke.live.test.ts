@@ -1,166 +1,208 @@
 /**
- * Integration smoke test for the Aggregator.
- * Two-wallet end-to-end test on Galileo testnet.
- * 
- * SETUP REQUIRED:
- * - FFE_LIVE_AGG=1 to enable this test
- * - FFE_LIVE_WALLET_1 & FFE_LIVE_WALLET_2: funded Galileo wallets (0x-prefixed hex keys)
- * 
- * This test:
- * 1. Creates a session with 2 contributors on Galileo
- * 2. Both submit encrypted training data to 0G Storage
- * 3. Waits for QuorumReached (both submitted) 
- * 4. Triggers aggregator: downloads blobs → trains LoRA → mints INFT
- * 5. Both contributors download and decrypt the final LoRA
- * 6. Verifies INFT was minted to both contributors
+ * E2E smoke test for the full aggregator pipeline on 0G mainnet.
+ *
+ *   openSession (with aggregator pubkey)
+ *   → submit x2 (encrypted, messages format)
+ *   → QuorumReached
+ *   → aggregate: decrypt blobs → train LoRA → mint INFT
+ *   → download + decrypt x2
+ *   → verify both contributors get identical bytes
+ *
+ * REQUIRED ENV VARS:
+ *   FFE_LIVE_AGG=1
+ *   AGG_EVM_KEY           aggregator wallet private key (0x-prefixed)
+ *   AGG_X25519_KEY        aggregator X25519 private key (32-byte hex, no 0x prefix)
+ *   COORDINATOR_ADDRESS   0x840C3E83A5f3430079Aff7247CD957c994076015
+ *   INFT_ADDRESS          0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471
+ *   FFE_LIVE_WALLET_1     contributor 1 private key (0x-prefixed)
+ *   FFE_LIVE_WALLET_2     contributor 2 private key (0x-prefixed)
+ *
+ * OPTIONAL:
+ *   USE_REAL_0G_TRAINING=true   call real 0G fine-tuning service (default: simulation)
  */
 
 import {describe, it, expect, beforeAll, afterAll} from "vitest";
-import {type Address, toHex} from "viem";
+import {type Hex} from "viem";
 import {privateKeyToAccount} from "viem/accounts";
-import {
-  FFE,
-  coordinator,
-  crypto,
-} from "@notmartin/ffe";
-import {startOrchestrator, type OrchestratorConfig} from "../../src/orchestrator";
+import {FFE, crypto} from "@notmartin/ffe";
+import {startOrchestrator} from "../../src/orchestrator";
 import {loadConfig} from "../../src/config";
 
-// Only run if FFE_LIVE_AGG env var is set
 const skipLive = !process.env.FFE_LIVE_AGG;
 
+const COORDINATOR = "0x840C3E83A5f3430079Aff7247CD957c994076015";
+const INFT      = "0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471";
+const RPC       = "https://evmrpc.0g.ai";
+
+// Training can take up to 10 min; give the whole pipeline 15 min
+const PIPELINE_TIMEOUT_MS = 15 * 60 * 1000;
+const POLL_INTERVAL_MS    = 15_000;
+
+async function waitForMint(ffe: FFE, sessionId: bigint, timeoutMs: number): Promise<bigint> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const minted = await ffe.inft.hasMinted(sessionId);
+      if (minted) {
+        return await ffe.inft.getTokenBySession(sessionId);
+      }
+    } catch {
+      // contract not yet updated — keep polling
+    }
+    const remaining = Math.round((deadline - Date.now()) / 1000);
+    console.log(`[Smoke] Waiting for mint... (${remaining}s remaining)`);
+    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+  }
+  throw new Error(`[Smoke] Mint not detected within ${timeoutMs / 1000}s`);
+}
+
 describe.skipIf(skipLive)(
-  "Aggregator Smoke Test (E2E on Galileo)",
+  "Aggregator E2E — 0G mainnet",
+  {timeout: PIPELINE_TIMEOUT_MS + 120_000},
   () => {
     let sessionId: bigint;
+    let tokenId: bigint;
+    let kp1: ReturnType<typeof crypto.generateKeyPair>;
+    let kp2: ReturnType<typeof crypto.generateKeyPair>;
+    let ffe1: FFE;
+    let ffe2: FFE;
     let orchestratorStop: (() => void) | null = null;
 
     beforeAll(async () => {
-      // Get wallet keys from env
-      const wallet1Key = process.env.FFE_LIVE_WALLET_1;
-      const wallet2Key = process.env.FFE_LIVE_WALLET_2;
+      const wallet1Key = process.env.FFE_LIVE_WALLET_1 as Hex | undefined;
+      const wallet2Key = process.env.FFE_LIVE_WALLET_2 as Hex | undefined;
+      const aggX25519Hex = process.env.AGG_X25519_KEY;
 
       if (!wallet1Key || !wallet2Key) {
+        throw new Error("FFE_LIVE_WALLET_1 and FFE_LIVE_WALLET_2 are required");
+      }
+      if (!aggX25519Hex) {
         throw new Error(
-          "Smoke test requires FFE_LIVE_WALLET_1 and FFE_LIVE_WALLET_2 (funded Galileo accounts)"
+          "AGG_X25519_KEY is required — run `pnpm keygen` in aggregator/ to generate one"
         );
       }
 
-      const wallet1Account = privateKeyToAccount(toHex(wallet1Key) as `0x${string}`);
-      const wallet2Account = privateKeyToAccount(toHex(wallet2Key) as `0x${string}`);
+      // Derive aggregator X25519 pubkey from its private key
+      const aggPrivKey = new Uint8Array(Buffer.from(aggX25519Hex, "hex"));
+      const aggPubKey  = crypto.publicKeyFromPrivate(aggPrivKey);
 
-      console.log(`[Smoke Test] Wallet 1: ${wallet1Account.address}`);
-      console.log(`[Smoke Test] Wallet 2: ${wallet2Account.address}`);
+      const acct1 = privateKeyToAccount(wallet1Key);
+      const acct2 = privateKeyToAccount(wallet2Key);
+      console.log(`[Smoke] Contributor 1: ${acct1.address}`);
+      console.log(`[Smoke] Contributor 2: ${acct2.address}`);
 
-      // 1. Create a session with 2 contributors
-      const ffe1 = new FFE({
+      // Per-contributor X25519 keypairs — used to seal/unseal the LoRA AES key
+      kp1 = crypto.generateKeyPair();
+      kp2 = crypto.generateKeyPair();
+
+      ffe1 = new FFE({
         privateKey: wallet1Key,
-        coordinatorAddress: "0x4Dd446F51126d473070444041B9AA36d3ae7F295" as Address,
-        rpcUrl: "https://evmrpc-testnet.0g.ai",
+        coordinatorAddress: COORDINATOR as `0x${string}`,
+        rpcUrl: RPC,
+        storageEvmRpc: RPC,
+      });
+      ffe2 = new FFE({
+        privateKey: wallet2Key,
+        coordinatorAddress: COORDINATOR as `0x${string}`,
+        rpcUrl: RPC,
+        storageEvmRpc: RPC,
       });
 
-      const baseModel = toHex("qwen-2.5-0.5b");
-      const kp1 = crypto.generateKeyPair();
-      const kp2 = crypto.generateKeyPair();
-
-      console.log(`[Smoke Test] Creating session with 2 participants...`);
-
-      const openResult = await ffe1.openSession({
-        baseModel,
+      // ── Step 1: create session, set aggregator pubkey inline ──────────────
+      // Setting aggregatorPubkey here means contributors can submit immediately
+      // without waiting for the aggregator to call setAggregatorPubkey separately.
+      console.log("[Smoke] Creating session...");
+      const {sessionId: sid} = await ffe1.openSession({
+        baseModel: "Qwen2.5-0.5B-Instruct",
         participants: [
-          {address: wallet1Account.address, publicKey: kp1.publicKey},
-          {address: wallet2Account.address, publicKey: kp2.publicKey},
+          {address: acct1.address, publicKey: kp1.publicKey},
+          {address: acct2.address, publicKey: kp2.publicKey},
         ],
         quorum: 2,
+        aggregatorPubkey: aggPubKey,
       });
+      sessionId = sid;
+      console.log(`[Smoke] Session created: ${sessionId}`);
 
-      sessionId = openResult.sessionId;
-      console.log(`[Smoke Test] Session created: ${sessionId}`);
+      // ── Step 2: both contributors submit in messages format ───────────────
+      // The 0G fine-tuning service requires JSONL with {"messages":[...]} lines.
+      const data1 = [
+        `{"messages":[{"role":"user","content":"What is FFE?"},{"role":"assistant","content":"FFE is a federated fine-tuning protocol that lets multiple parties jointly train a LoRA without revealing their private data."}]}`,
+        `{"messages":[{"role":"user","content":"How does FFE protect my data?"},{"role":"assistant","content":"FFE encrypts your training data to the aggregator TEE public key. Only the enclave can decrypt it."}]}`,
+        `{"messages":[{"role":"user","content":"What happens after training?"},{"role":"assistant","content":"The TEE encrypts the trained LoRA, seals the key for each contributor, and mints an INFT on-chain. Each contributor can decrypt independently."}]}`,
+      ].join("\n");
 
-      // 2. Both wallets submit training data
-      const testData1 = JSON.stringify({
-        input: "The quick brown fox",
-        output: "jumps over the lazy dog",
-      });
-      const testData2 = JSON.stringify({
-        input: "How are you?",
-        output: "I am doing well, thank you!",
-      });
+      const data2 = [
+        `{"messages":[{"role":"user","content":"Who owns the trained model?"},{"role":"assistant","content":"Every contributor receives a sealed copy of the AES key inside an on-chain INFT. Ownership is proportional and verifiable."}]}`,
+        `{"messages":[{"role":"user","content":"What blockchain does FFE use?"},{"role":"assistant","content":"FFE runs on 0G Network for contracts, 0G Storage for encrypted blobs, and 0G Compute for TEE fine-tuning."}]}`,
+        `{"messages":[{"role":"user","content":"Can a bad contributor be punished?"},{"role":"assistant","content":"Yes. The quality gate scores each contributor's data. Contributors below the threshold have their stake slashed."}]}`,
+      ].join("\n");
 
-      console.log(`[Smoke Test] Wallet 1 submitting data...`);
-      const submit1 = await ffe1.submit({
+      console.log("[Smoke] Contributor 1 submitting...");
+      const {rootHash: rh1} = await ffe1.submit({
         sessionId,
-        data: new TextEncoder().encode(testData1),
+        data: new TextEncoder().encode(data1),
       });
-      console.log(`[Smoke Test] Wallet 1 submitted: ${submit1.rootHash}`);
+      console.log(`[Smoke] Contributor 1 blob: ${rh1}`);
 
-      const ffe2 = new FFE({
-        privateKey: wallet2Key,
-        coordinatorAddress: "0x4Dd446F51126d473070444041B9AA36d3ae7F295" as Address,
-        rpcUrl: "https://evmrpc-testnet.0g.ai",
-      });
-
-      console.log(`[Smoke Test] Wallet 2 submitting data...`);
-      const submit2 = await ffe2.submit({
+      console.log("[Smoke] Contributor 2 submitting...");
+      const {rootHash: rh2} = await ffe2.submit({
         sessionId,
-        data: new TextEncoder().encode(testData2),
+        data: new TextEncoder().encode(data2),
       });
-      console.log(`[Smoke Test] Wallet 2 submitted: ${submit2.rootHash}`);
+      console.log(`[Smoke] Contributor 2 blob: ${rh2}`);
 
-      // 3. Start the aggregator to listen for QuorumReached and process
-      console.log(`[Smoke Test] Starting aggregator service...`);
+      // ── Step 3: start aggregator ──────────────────────────────────────────
+      // loadConfig() reads env vars — AGG_EVM_KEY, AGG_X25519_KEY,
+      // COORDINATOR_ADDRESS, INFT_ADDRESS must all be set.
+      console.log("[Smoke] Starting aggregator...");
       const config = loadConfig();
-      const orchestratorConfig: OrchestratorConfig = {config};
-      orchestratorStop = startOrchestrator(orchestratorConfig);
+      orchestratorStop = startOrchestrator({config});
 
-      // Wait for processing (in real scenario, monitor event listener for completion)
-      // For now, wait a reasonable time for the pipeline to complete
-      console.log(`[Smoke Test] Waiting for aggregator to process (30s timeout)...`);
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      // ── Step 4: poll until minted ─────────────────────────────────────────
+      console.log("[Smoke] Waiting for pipeline: decrypt → train → mint...");
+      tokenId = await waitForMint(ffe1, sessionId, PIPELINE_TIMEOUT_MS);
+      console.log(`[Smoke] INFT minted. tokenId=${tokenId}`);
+    }, PIPELINE_TIMEOUT_MS + 120_000);
+
+    afterAll(() => {
+      orchestratorStop?.();
+      console.log("[Smoke] Done.");
     });
 
-    afterAll(async () => {
-      if (orchestratorStop) {
-        orchestratorStop();
-      }
-      console.log("[Smoke Test] Cleanup complete");
+    it("session created successfully", () => {
+      expect(sessionId).toBeGreaterThanOrEqual(0n);
     });
 
-    it("should create a session with 2 contributors", async () => {
-      expect(sessionId).toBeGreaterThan(0n);
+    it("INFT minted for session", () => {
+      expect(tokenId).toBeGreaterThanOrEqual(0n);
     });
 
-    it("should submit data from 2 wallets", async () => {
-      // Verified in beforeAll - both submits succeeded without error
-      expect(sessionId).toBeDefined();
+    it("contributor 1 can download and decrypt the LoRA", async () => {
+      const result = await ffe1.download({
+        sessionId,
+        recipientPrivateKey: kp1.privateKey,
+      });
+      expect(result.data.length).toBeGreaterThan(0);
+      expect(result.tokenId).toBe(tokenId);
+      console.log(`[Smoke] Contributor 1 decrypted ${result.data.length} bytes`);
     });
 
-    it("should trigger aggregator on quorum", async () => {
-      // Orchestrator started and should detect QuorumReached
-      // (Full verification would require monitoring event listener output)
-      expect(orchestratorStop).toBeDefined();
+    it("contributor 2 can download and decrypt the LoRA", async () => {
+      const result = await ffe2.download({
+        sessionId,
+        recipientPrivateKey: kp2.privateKey,
+      });
+      expect(result.data.length).toBeGreaterThan(0);
+      expect(result.tokenId).toBe(tokenId);
+      console.log(`[Smoke] Contributor 2 decrypted ${result.data.length} bytes`);
     });
 
-    it("should train LoRA and mint INFT", async () => {
-      // Minting happens in orchestrator pipeline
-      // Full verification would require querying INFTMinter contract for the token
-      expect(sessionId).toBeGreaterThan(0n);
-    });
-
-    it("should allow contributors to download decrypted LoRA", async () => {
-      // Full implementation would call FFE.download() for each wallet
-      // and verify decrypted JSONL contains training data
-      // For smoke test: just verify session ID was established
-      expect(sessionId).toBeDefined();
-    });
-
-    it("should verify INFT was minted to contributors", async () => {
-      // Full implementation would query INFTMinter:
-      // 1. Get token by session ID
-      // 2. Verify owner and contributors
-      // 3. Verify metadata
-      // For smoke test: basic verification
-      expect(sessionId).toBeGreaterThan(0n);
+    it("both contributors decrypt to identical bytes", async () => {
+      const r1 = await ffe1.download({sessionId, recipientPrivateKey: kp1.privateKey});
+      const r2 = await ffe2.download({sessionId, recipientPrivateKey: kp2.privateKey});
+      expect(Buffer.from(r1.data).toString("hex")).toBe(Buffer.from(r2.data).toString("hex"));
+      console.log(`[Smoke] ✓ Both contributors hold the same ${r1.data.length}-byte LoRA`);
     });
   }
 );

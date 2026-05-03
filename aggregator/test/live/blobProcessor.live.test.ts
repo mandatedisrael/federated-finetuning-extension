@@ -1,5 +1,5 @@
 /**
- * Live integration test for blob processor on Galileo.
+ * Live integration test for blob processor on 0G Mainnet.
  * Uploads real encrypted blobs to 0G Storage, then downloads and decrypts them.
  * Gated by FFE_LIVE_BLOB_PROCESSOR=1.
  */
@@ -13,7 +13,7 @@ import {tmpdir} from "os";
 const skipLive = !process.env.FFE_LIVE_BLOB_PROCESSOR;
 
 describe.skipIf(skipLive)(
-  "BlobProcessor Live Test (0G Storage on Galileo)",
+  "BlobProcessor Live Test (0G Storage on 0G Mainnet)",
   () => {
     let blobHashes: Hash[] = [];
     let ownerPubkeys: Uint8Array[] = [];
@@ -37,7 +37,7 @@ describe.skipIf(skipLive)(
 
       const storageClient = new storage.ZeroGStorage({
         privateKey: storageKey,
-        indexerRpc: "https://indexer-storage-testnet-turbo.0g.ai",
+        indexerRpc: "https://indexer-storage-standard.0g.ai",
       });
 
       // Encrypt blobs to aggregator's public key and upload
@@ -68,7 +68,7 @@ describe.skipIf(skipLive)(
         blobHashes,
         ownerPubkeys,
         {
-          storageIndexerUrl: "https://indexer-storage-testnet-turbo.0g.ai",
+          storageIndexerUrl: "https://indexer-storage-standard.0g.ai",
           aggregatorPrivateKey: aggregatorKeyPair.privateKey,
           sessionId: 1n,
           tempDir: tmpdir(),
@@ -98,7 +98,7 @@ describe.skipIf(skipLive)(
         blobHashes,
         ownerPubkeys,
         {
-          storageIndexerUrl: "https://indexer-storage-testnet-turbo.0g.ai",
+          storageIndexerUrl: "https://indexer-storage-standard.0g.ai",
           aggregatorPrivateKey: aggregatorKeyPair.privateKey,
           sessionId: 2n,
           tempDir: tmpdir(),
