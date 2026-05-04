@@ -1,0 +1,3 @@
+{"messages":[{"role":"user","content":"What is machine learning?"},{"role":"assistant","content":"Machine learning is a way for software to learn patterns from data and improve task performance."}]}
+{"messages":[{"role":"user","content":"What does a training dataset do?"},{"role":"assistant","content":"A training dataset gives examples that shape model behavior during fine-tuning."}]}
+{"messages":[{"role":"user","content":"What is a LoRA adapter?"},{"role":"assistant","content":"A LoRA adapter is a compact set of fine-tuned weights that can be loaded with a base model."}]}

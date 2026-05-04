@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "sessionId": "49",
+  "contributor1": {
+    "address": "0x06C12dF5225227b3AFFB5d6939AeCef84beD1195",
+    "publicKey": "b3cb79bf71d02fa46c09c4aaafcac2215aeddb87884f3b9643949779b3848a28",
+    "privateKey": "a49c19965d45edc567e9f59ff333d12ba6a435d243521e04840ce150822f74b3"
+  },
+  "contributor2": {
+    "address": "0xc6b0BD7978846459C9f94561F4A7a248759e7a9D",
+    "publicKey": "2c7caa589acbd0ab2cf805d4f26805fa990372f1a6ef62825a427e48b9436821",
+    "privateKey": "9bda40ef865a3b8cf7d683f15da05ff248b84b7b61ca6b0e58c9bfd60691931a"
+  }
+}

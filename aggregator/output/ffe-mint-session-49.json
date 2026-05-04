@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "sessionId": "49",
+  "inftMinterAddress": "0x04D804912881B692b585604fb0dA1CE0D403487E",
+  "rpcUrl": "https://evmrpc.0g.ai",
+  "loraBlobHash": "0x4eddb9ba47a9783ce7288ddbc4ab6a299eb1ba9cb789fe88baab7f82efec1399",
+  "contributors": [
+    "0x06C12dF5225227b3AFFB5d6939AeCef84beD1195",
+    "0xc6b0BD7978846459C9f94561F4A7a248759e7a9D"
+  ],
+  "sealedKeys": [
+    {
+      "contributor": "0x06C12dF5225227b3AFFB5d6939AeCef84beD1195",
+      "sealedKey": "0x4f52179c2b5670b904104d8723e49ac1eb92377a2e2bea8dcb88100020fb623bd94a130121a619f0f194dc49041a3a0785f323c35769ef300b6a29fb190b4b1718a16561e6c799807e94737670f26caa3998af45b7437128156f5040"
+    },
+    {
+      "contributor": "0xc6b0BD7978846459C9f94561F4A7a248759e7a9D",
+      "sealedKey": "0x6c59b2be5f50506a65829b3126a0ea58684dac114c42e69509d820e129b2fb3cf564b9603d2a5bf0bdc90d3e4b09450ab7b0e136d0d9d7ec439faa5fe32078641360a4ac5b2e642d4af47b998529dda2389f8ce1a6569e571b4e47ba"
+    }
+  ]
+}

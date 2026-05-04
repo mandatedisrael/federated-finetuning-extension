@@ -28,6 +28,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "start": "set -a; [ -f .env ] && . ./.env; set +a; pnpm build >/dev/null && node dist/run.js",
+    "mint:resume": "set -a; [ -f .env ] && . ./.env; set +a; pnpm build >/dev/null && node dist/resumeMint.js",
     "service": "set -a; [ -f .env ] && . ./.env; set +a; pnpm build >/dev/null && node dist/start.js",
     "keygen": "tsx scripts/keygen.ts"
   },

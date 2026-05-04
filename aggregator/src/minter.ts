@@ -5,6 +5,8 @@
 
 import {type Address, type Hash} from "viem";
 import {privateKeyToAccount} from "viem/accounts";
+import {mkdir, writeFile} from "fs/promises";
+import {dirname} from "path";
 import {
   crypto,
   storage,
@@ -24,6 +26,12 @@ export interface MinterOptions {
   storageIndexerUrl: string;
   /** Local fallback directory for blob storage when 0G is unavailable */
   localStorageDir?: string;
+  /** Allow local fallback for the final LoRA artifact. Defaults to false. */
+  allowLocalFallback?: boolean;
+  /** Number of 0G segments per upload task. Larger values reduce parallel request fan-out. */
+  uploadTaskSize?: number;
+  /** Optional JSON checkpoint written after LoRA upload/sealing and before mint tx */
+  mintCheckpointPath?: string;
 }
 
 export interface MintingPayload {
@@ -71,7 +79,18 @@ export async function mintLoraNFT(
     privateKey: options.aggregatorEVMPrivateKey,
     evmRpc: options.rpcUrl,
     indexerRpc: options.storageIndexerUrl,
-    ...(options.localStorageDir ? {localFallbackDir: options.localStorageDir} : {}),
+    ...(options.allowLocalFallback && options.localStorageDir
+      ? {localFallbackDir: options.localStorageDir}
+      : {}),
+    uploadOptions: {
+      taskSize: options.uploadTaskSize ?? 16,
+    },
+    retryOptions: {
+      Retries: 10,
+      Interval: 5,
+      MaxGasPrice: 0,
+      TooManyDataRetries: 8,
+    },
   });
 
   const uploadResult = await storageClient.upload(payload.encryptedLoraAdapter);
@@ -94,6 +113,30 @@ export async function mintLoraNFT(
       contributor: contributor.address,
       sealedKey: sealedBytes,
     });
+  }
+
+  if (options.mintCheckpointPath) {
+    await mkdir(dirname(options.mintCheckpointPath), {recursive: true});
+    await writeFile(
+      options.mintCheckpointPath,
+      JSON.stringify(
+        {
+          version: 1,
+          sessionId: payload.sessionId.toString(),
+          inftMinterAddress: options.inftMinterAddress,
+          rpcUrl: options.rpcUrl,
+          loraBlobHash: uploadResult.rootHash,
+          contributors: payload.contributors.map((c) => c.address),
+          sealedKeys: sealedKeys.map((s) => ({
+            contributor: s.contributor,
+            sealedKey: `0x${Buffer.from(s.sealedKey).toString("hex")}`,
+          })),
+        },
+        null,
+        2
+      )
+    );
+    console.log(`[Minter] Mint checkpoint saved: ${options.mintCheckpointPath}`);
   }
 
   // 3. Create account from aggregator's private key

@@ -7,10 +7,35 @@ into a multi-contributor workflow: several parties encrypt datasets to an
 aggregator, the aggregator trains one shared LoRA, and the result is minted as
 an INFT with a sealed decryption key for each contributor.
 
-The current repo includes a live two-contributor end-to-end runner. It is not a
-mock: `pnpm demo` creates an on-chain FFE session, submits encrypted datasets,
-runs the aggregator, calls real 0G fine-tuning, mints an INFT, and verifies both
-contributors decrypt the same LoRA bytes.
+The current repo includes a two-contributor end-to-end runner behind
+`pnpm start`. It creates an on-chain FFE session, submits encrypted datasets,
+runs the aggregator, calls real 0G fine-tuning, mints an INFT, and
+verifies both contributors decrypt the same LoRA bytes.
+
+---
+
+## Compare LoRA Files
+
+You can compare two trained LoRA files to inspect training metadata, estimated
+dataset sizes, and weight differences:
+
+```bash
+node sdk/compare-loras.js <loraPath1> <loraPath2> [label1] [label2]
+```
+
+Example:
+
+```bash
+node sdk/compare-loras.js ./single-trained-lora ./ffe-trained-lora Single FFE
+```
+
+The script supports ZIP (HuggingFace adapter), SafeTensors, and JSON formats.
+It extracts:
+
+- Training parameters (rank, alpha, dropout, batch size, epochs)
+- Estimated dataset size (computed from steps/epochs ratio)
+- Loss progression side by side
+- Weight hash comparison to confirm models are different
 
 ---
 
@@ -19,7 +44,7 @@ contributors decrypt the same LoRA bytes.
 - Contributors encrypt JSONL datasets to the aggregator X25519 public key.
 - The Coordinator contract tracks sessions, participants, submissions, and quorum.
 - When quorum is reached, the aggregator fetches and decrypts blobs, combines the
-  data, and trains one shared LoRA through 0G fine-tuning.
+  data, and trains one shared LoRA through real 0G fine-tuning.
 - The trained LoRA is encrypted once with AES-256-GCM.
 - The LoRA key is sealed separately for each contributor and stored in the INFT.
 - Each contributor can independently download and decrypt the same shared model.
@@ -35,11 +60,11 @@ Implemented:
 - INFT minter contract with per-contributor sealed keys
 - Aggregator pipeline: listen for quorum, fetch/decrypt blobs, train, encrypt, mint
 - Local storage fallback for dev/live runs when 0G Storage is unavailable
-- Live two-contributor runner in `aggregator/demo.ts`
+- Two-contributor runner in `aggregator/src/run.ts`, launched by `pnpm start`
 
 Not yet implemented:
 
-- Real Tapp enclave attestation enforcement
+- Real 0G Tapp enclave attestation enforcement
 - Staking and slashing
 - Quality Gate and post-training backstop
 - CLI package for non-developer users
@@ -65,7 +90,7 @@ Contributor C  -> encrypt JSONL_C to aggregator pubkey -> 0G Storage
                          2. fetch encrypted blobs
                          3. decrypt with aggregator X25519 key
                          4. concatenate JSONL
-                         5. train one shared LoRA through 0G fine-tuning
+                         5. train one shared LoRA through real 0G fine-tuning
                          6. encrypt LoRA
                          7. seal LoRA key for each contributor
                          8. mint INFT
@@ -119,11 +144,11 @@ AGG_EVM_KEY=0x...
 AGG_X25519_KEY=...
 
 COORDINATOR_ADDRESS=0x840C3E83A5f3430079Aff7247CD957c994076015
-INFT_ADDRESS=0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471
+INFT_ADDRESS=0x04D804912881B692b585604fb0dA1CE0D403487E
 
 RPC_URL=https://evmrpc.0g.ai
 FT_RPC_URL=https://evmrpc.0g.ai
-STORAGE_INDEXER_URL=https://indexer-storage-testnet-turbo.0g.ai
+STORAGE_INDEXER_URL=https://indexer-storage-turbo.0g.ai
 FT_PROVIDER_ADDRESS=0x940b4a101CaBa9be04b16A7363cafa29C1660B0d
 
 BASE_MODEL=Qwen2.5-0.5B-Instruct
@@ -135,20 +160,20 @@ CLI command and do not commit `.env`.
 
 ### 3. Fund the live accounts
 
-The demo uses three wallets:
+The start command uses three wallets:
 
 - contributor 1: pays for session creation and its submit transaction
 - contributor 2: pays for its submit transaction
 - aggregator: pays for fine-tuning/minting/storage-related transactions
 
-All three need OG on the target 0G network. `pnpm demo` performs a preflight
+All three need OG on the target 0G network. `pnpm start` performs a preflight
 balance check and stops before sending transactions if any account has no OG.
 
 ### 4. Run the real live FFE flow
 
 ```bash
 cd aggregator
-pnpm demo
+pnpm start
 ```
 
 What this does:
@@ -177,10 +202,6 @@ pnpm --filter @notmartin/ffe-aggregator test
 cd aggregator
 pnpm run test:live:simple
 
-# Start the aggregator service by itself
-cd aggregator
-pnpm start
-
 # Generate a fresh aggregator X25519 keypair
 cd aggregator
 pnpm keygen
@@ -190,7 +211,7 @@ pnpm keygen
 
 ## Live Runner Details
 
-`aggregator/demo.ts` is the canonical live runner.
+`aggregator/src/run.ts` is the canonical runner and is invoked by `pnpm start`.
 
 It creates ephemeral contributor X25519 keys for the run. Those public keys are
 registered in the session and later used by the aggregator to seal the LoRA AES
@@ -201,10 +222,10 @@ The aggregator X25519 key is long-lived and comes from `AGG_X25519_KEY`. Its
 derived public key is published in the session so contributors can encrypt their
 datasets before upload.
 
-During `pnpm demo`, the runner starts the aggregator by spawning `pnpm start`
-after both contributors submit. The real training path uses the 0G Compute
-TypeScript SDK from inside that aggregator process and signs with `AGG_EVM_KEY`.
-This avoids depending on a separate globally logged-in `0g-compute-cli` wallet.
+During `pnpm start`, the runner starts the aggregator in the same process after
+both contributors submit. The aggregator decrypts the submitted blobs with
+`AGG_X25519_KEY`, combines the JSONL, and uses the real 0G fine-tuning path in
+`trainingBridge.ts`, signing the fine-tuning request with `AGG_EVM_KEY`.
 
 ---
 
@@ -248,11 +269,11 @@ the root live flow currently targets the addresses above.
 ```text
 FFE/
 ├── aggregator/
-│   ├── demo.ts                 # real live two-contributor FFE run
+│   ├── src/run.ts              # two-contributor FFE run used by pnpm start
 │   ├── src/
 │   │   ├── blobProcessor.ts    # fetch/decrypt contributor blobs
 │   │   ├── eventListener.ts    # poll Coordinator for quorum sessions
-│   │   ├── trainingBridge.ts   # real 0G fine-tuning or simulation
+│   │   ├── trainingBridge.ts   # TEE simulation or real 0G fine-tuning
 │   │   ├── minter.ts           # upload encrypted LoRA and mint INFT
 │   │   └── orchestrator.ts     # wires the pipeline together
 │   └── test/
@@ -278,9 +299,9 @@ FFE/
 
 - Joint training mode
 - Multi-owner encrypted output
-- Real 0G fine-tuning integration
+- Optional real 0G fine-tuning integration
 - TEE/Tapp attestation hardening
-- SDK + reference aggregator + live demo
+- SDK + reference aggregator + start command
 
 ### v2
 

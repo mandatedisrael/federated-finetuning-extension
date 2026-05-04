@@ -1,6 +1,6 @@
 import {mkdir, writeFile, readFile} from "fs/promises";
 import {join} from "path";
-import {Indexer, MemData} from "@0gfoundation/0g-ts-sdk";
+import {Indexer, MemData, type UploadOption} from "@0gfoundation/0g-ts-sdk";
 import {ethers} from "ethers";
 import {keccak256, type Hex} from "viem";
 import {FFEError} from "../errors.js";
@@ -38,6 +38,15 @@ export interface ZeroGStorageOptions {
      * On a single machine (demo/dev), all participants share this directory.
      */
     localFallbackDir?: string;
+    /** Optional 0G upload tuning. Useful for large artifacts. */
+    uploadOptions?: UploadOption;
+    /** Optional 0G upload retry tuning. */
+    retryOptions?: {
+        Retries: number;
+        Interval: number;
+        MaxGasPrice: number;
+        TooManyDataRetries?: number;
+    };
 }
 
 /**
@@ -83,12 +92,16 @@ export class ZeroGStorage {
     readonly localFallbackDir: string | undefined;
     private readonly indexer: Indexer;
     private readonly signer: ethers.Signer | undefined;
+    private readonly uploadOptions: UploadOption | undefined;
+    private readonly retryOptions: ZeroGStorageOptions["retryOptions"];
 
     constructor(options: ZeroGStorageOptions = {}) {
         this.evmRpc = options.evmRpc ?? ZEROG_TESTNET_EVM_RPC;
         this.indexerRpc = options.indexerRpc ?? ZEROG_TESTNET_INDEXER_RPC;
         this.localFallbackDir = options.localFallbackDir;
         this.indexer = new Indexer(this.indexerRpc);
+        this.uploadOptions = options.uploadOptions;
+        this.retryOptions = options.retryOptions;
 
         if (options.signer) {
             this.signer = options.signer;
@@ -160,7 +173,13 @@ export class ZeroGStorage {
             });
         }
 
-        const [result, upErr] = await this.indexer.upload(file, this.evmRpc, this.signer!);
+        const [result, upErr] = await this.indexer.upload(
+            file,
+            this.evmRpc,
+            this.signer!,
+            this.uploadOptions,
+            this.retryOptions,
+        );
         if (upErr !== null) {
             throw new StorageError(`upload failed: ${upErr.message}`, {cause: upErr});
         }

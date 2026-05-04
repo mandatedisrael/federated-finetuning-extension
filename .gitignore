@@ -25,3 +25,5 @@ contracts/broadcast/
 
 # spike-only: cloned upstream references (re-clone as needed)
 phase0/**/reference/
+ffe-trained-lora
+single-trained-lora

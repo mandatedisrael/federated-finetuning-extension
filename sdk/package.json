@@ -30,7 +30,8 @@
     "test:live:download": "FFE_LIVE_DOWNLOAD=1 vitest run test/live/download.live.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "abi:sync": "bash scripts/sync-abi.sh"
+    "abi:sync": "bash scripts/sync-abi.sh",
+    "compare-lora": "node compare-loras.js"
   },
   "dependencies": {
     "@0gfoundation/0g-ts-sdk": "^1.2.6",

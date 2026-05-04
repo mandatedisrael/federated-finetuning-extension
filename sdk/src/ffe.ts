@@ -25,6 +25,8 @@ export interface FFEOptions {
     privateKey: Hex | string;
     /** Coordinator contract address. Defaults to the deployed Galileo address. */
     coordinatorAddress?: Address;
+    /** INFTMinter contract address. Defaults to the deployed Galileo address. */
+    inftMinterAddress?: Address;
     /** Coordinator RPC URL. Defaults to the public Galileo endpoint. */
     rpcUrl?: string;
     /** 0G Storage EVM RPC. Defaults to Galileo. */
@@ -232,6 +234,7 @@ export class FFE {
 
         this.inft = createINFTMinterClient({
             account,
+            ...(options.inftMinterAddress ? {address: options.inftMinterAddress} : {}),
             ...(options.rpcUrl ? {rpcUrl: options.rpcUrl} : {}),
         });
 

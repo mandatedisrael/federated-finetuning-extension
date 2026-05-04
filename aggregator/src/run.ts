@@ -80,6 +80,10 @@ function encodeJsonl(records: unknown[]): Uint8Array {
   return new TextEncoder().encode(records.map((r) => JSON.stringify(r)).join("\n") + "\n");
 }
 
+function bytesToHex(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString("hex");
+}
+
 async function assertFunded(addresses: Record<string, Address>, rpcUrl: string): Promise<void> {
   const client = createPublicClient({
     chain: {...ogMainnet, rpcUrls: {default: {http: [rpcUrl]}}},
@@ -178,6 +182,7 @@ async function main() {
   const ffe1 = new FFE({
     privateKey: wallet1Key,
     coordinatorAddress,
+    inftMinterAddress: inftAddress,
     rpcUrl,
     storageEvmRpc: rpcUrl,
     ...(storageIndexerRpc ? {storageIndexerRpc} : {}),
@@ -186,6 +191,7 @@ async function main() {
   const ffe2 = new FFE({
     privateKey: wallet2Key,
     coordinatorAddress,
+    inftMinterAddress: inftAddress,
     rpcUrl,
     storageEvmRpc: rpcUrl,
     ...(storageIndexerRpc ? {storageIndexerRpc} : {}),
@@ -203,6 +209,31 @@ async function main() {
     aggregatorPubkey,
   });
   console.log(`Session: ${sessionId}`);
+
+  const keyCheckpointPath = join(OUTPUT_DIR, `ffe-session-${sessionId}-keys.json`);
+  await writeFile(
+    keyCheckpointPath,
+    JSON.stringify(
+      {
+        version: 1,
+        sessionId: sessionId.toString(),
+        contributor1: {
+          address: contributor1.address,
+          publicKey: bytesToHex(kp1.publicKey),
+          privateKey: bytesToHex(kp1.privateKey),
+        },
+        contributor2: {
+          address: contributor2.address,
+          publicKey: bytesToHex(kp2.publicKey),
+          privateKey: bytesToHex(kp2.privateKey),
+        },
+      },
+      null,
+      2
+    )
+  );
+  console.log(`Contributor decrypt keys saved: ${keyCheckpointPath}`);
+  console.log("Keep that file private; it lets the contributors decrypt this session's LoRA.");
 
   const data1 = encodeJsonl([
     {

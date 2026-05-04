@@ -158,6 +158,11 @@ async function handleQuorumReachedEvent(
         rpcUrl: config.config.rpcUrl,
         storageIndexerUrl: config.config.storageIndexerUrl,
         localStorageDir: config.config.localStorageDir,
+        allowLocalFallback: process.env.FFE_ALLOW_LOCAL_LORA_FALLBACK === "true",
+        uploadTaskSize: Number(process.env.FFE_LORA_UPLOAD_TASK_SIZE || "16"),
+        mintCheckpointPath:
+          process.env.FFE_MINT_CHECKPOINT_PATH ||
+          `./output/ffe-mint-session-${sessionId}.json`,
       });
 
       console.log(`[Orchestrator] Session ${sessionId} complete: txHash=${mintResult.txHash}`);
