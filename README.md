@@ -257,10 +257,24 @@ Current live runner defaults:
 | Contract | Network | Address |
 |---|---|---|
 | Coordinator | 0G Mainnet | `0x840C3E83A5f3430079Aff7247CD957c994076015` |
-| INFTMinter | 0G Mainnet | `0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471` |
+| INFTMinter | 0G Mainnet | `0x04D804912881B692b585604fb0dA1CE0D403487E` |
 
 Older Galileo testnet deployments may still exist in `contracts/README.md`, but
 the root live flow currently targets the addresses above.
+
+The INFTMinter contract is immutable. If you experience any errors with the
+deployed address (e.g. it has been replaced), you can deploy your own copy:
+
+```bash
+cd contracts
+MINTER_ADDRESS=0x... \
+  forge script script/DeployINFTMinter.s.sol \
+    --rpc-url $RPC_URL \
+    --private-key $DEPLOYER_PRIVATE_KEY \
+    --broadcast
+```
+
+Then set `INFT_ADDRESS` in your `aggregator/.env` to the newly deployed address.
 
 ---
 

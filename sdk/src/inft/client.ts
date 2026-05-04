@@ -42,7 +42,7 @@ export interface INFTMinterClientOptions {
 }
 
 export const GALILEO_INFT_MINTER_ADDRESS =
-    "0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471" as Address;
+    "0x04D804912881B692b585604fb0dA1CE0D403487E" as Address;
 
 /* ──────────── helpers ──────────── */
 

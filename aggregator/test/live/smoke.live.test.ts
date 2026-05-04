@@ -13,7 +13,7 @@
  *   AGG_EVM_KEY           aggregator wallet private key (0x-prefixed)
  *   AGG_X25519_KEY        aggregator X25519 private key (32-byte hex, no 0x prefix)
  *   COORDINATOR_ADDRESS   0x840C3E83A5f3430079Aff7247CD957c994076015
- *   INFT_ADDRESS          0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471
+ *   INFT_ADDRESS          0x04D804912881B692b585604fb0dA1CE0D403487E
  *   FFE_LIVE_WALLET_1     contributor 1 private key (0x-prefixed)
  *   FFE_LIVE_WALLET_2     contributor 2 private key (0x-prefixed)
  *
@@ -31,7 +31,7 @@ import {loadConfig} from "../../src/config";
 const skipLive = !process.env.FFE_LIVE_AGG;
 
 const COORDINATOR   = "0x840C3E83A5f3430079Aff7247CD957c994076015";
-const INFT          = "0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471";
+const INFT          = "0x04D804912881B692b585604fb0dA1CE0D403487E";
 const RPC           = "https://evmrpc.0g.ai";
 const LOCAL_STORAGE = process.env.FFE_LOCAL_STORAGE_DIR ?? "/tmp/ffe-storage";
 

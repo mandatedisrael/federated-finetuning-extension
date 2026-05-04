@@ -13,7 +13,7 @@ import {loadConfig} from "../../src/config";
 const skipLive = !process.env.FFE_LIVE_AGG;
 
 const COORDINATOR   = "0x840C3E83A5f3430079Aff7247CD957c994076015";
-const INFT          = "0xEcEd8069b33Ce4F397e4Df1cbb4cDD2fAA038471";
+const INFT          = "0x04D804912881B692b585604fb0dA1CE0D403487E";
 const RPC           = "https://evmrpc.0g.ai";
 const LOCAL_STORAGE = "/tmp/ffe-storage-test";
 
