@@ -84,7 +84,7 @@ export function loadConfig(): AggregatorConfig {
     process.env.RPC_URL || "https://evmrpc.0g.ai";
   const storageIndexerUrl =
     process.env.STORAGE_INDEXER_URL ||
-    "https://indexer-storage-testnet-turbo.0g.ai";
+    "https://indexer-storage-turbo.0g.ai";
   const pollIntervalMs = parseInt(process.env.POLL_INTERVAL_MS || "5000", 10);
 
   if (isNaN(pollIntervalMs) || pollIntervalMs < 1000) {

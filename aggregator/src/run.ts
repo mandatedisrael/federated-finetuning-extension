@@ -1,14 +1,13 @@
 /**
  * Live FFE end-to-end run.
  *
- * `pnpm demo` loads `.env` and runs a real two-contributor FFE training:
- * create session -> encrypted submits -> aggregator real 0G training -> INFT
+ * `pnpm start` loads `.env` and runs a two-contributor FFE training flow:
+ * create session -> encrypted submits -> real 0G fine-tuning -> INFT
  * mint -> both contributors download and decrypt the same LoRA.
  */
 
 import {mkdir, writeFile} from "fs/promises";
 import {join} from "path";
-import {spawn, type ChildProcessWithoutNullStreams} from "child_process";
 import {
   createPublicClient,
   formatEther,
@@ -18,6 +17,8 @@ import {
 } from "viem";
 import {privateKeyToAccount} from "viem/accounts";
 import {FFE, crypto} from "@notmartin/ffe";
+import {loadConfig} from "./config.js";
+import {startOrchestrator} from "./orchestrator.js";
 
 const OUTPUT_DIR = "./output";
 const DEFAULT_RPC_URL = "https://evmrpc.0g.ai";
@@ -94,79 +95,20 @@ async function assertFunded(addresses: Record<string, Address>, rpcUrl: string):
 
   if (empty.length > 0) {
     throw new Error(
-      `These accounts need OG for live transactions before running pnpm demo: ${empty.join(", ")}`
+      `These accounts need OG for live transactions before running pnpm start: ${empty.join(", ")}`
     );
   }
-}
-
-interface AggregatorProcess {
-  child: ChildProcessWithoutNullStreams;
-  getExitError: () => Error | null;
-}
-
-function prefixOutput(prefix: string, chunk: Buffer) {
-  for (const line of chunk.toString().split(/\r?\n/)) {
-    if (line.trim().length > 0) console.log(`${prefix} ${line}`);
-  }
-}
-
-function startAggregatorProcess(): AggregatorProcess {
-  const child = spawn("pnpm", ["start"], {
-    cwd: process.cwd(),
-    env: process.env,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  let exitError: Error | null = null;
-
-  child.stdout.on("data", (chunk: Buffer) => prefixOutput("[Aggregator]", chunk));
-  child.stderr.on("data", (chunk: Buffer) => prefixOutput("[Aggregator]", chunk));
-  child.on("error", (err) => {
-    exitError = err;
-  });
-  child.on("exit", (code, signal) => {
-    if (code !== 0 && signal !== "SIGTERM") {
-      exitError = new Error(`pnpm start exited with code ${code ?? "null"} signal ${signal ?? "null"}`);
-    }
-  });
-
-  return {
-    child,
-    getExitError: () => exitError,
-  };
-}
-
-async function stopAggregatorProcess(processInfo: AggregatorProcess): Promise<void> {
-  if (processInfo.child.exitCode !== null || processInfo.child.signalCode !== null) return;
-
-  await new Promise<void>((resolve) => {
-    const timeout = setTimeout(() => {
-      processInfo.child.kill("SIGKILL");
-      resolve();
-    }, 5_000);
-
-    processInfo.child.once("exit", () => {
-      clearTimeout(timeout);
-      resolve();
-    });
-
-    processInfo.child.kill("SIGTERM");
-  });
 }
 
 async function waitForMint(
   ffe: FFE,
   sessionId: bigint,
-  timeoutMs: number,
-  getAggregatorExitError: () => Error | null
+  timeoutMs: number
 ): Promise<bigint> {
   const deadline = Date.now() + timeoutMs;
   let polls = 0;
 
   while (Date.now() < deadline) {
-    const aggregatorExitError = getAggregatorExitError();
-    if (aggregatorExitError) throw aggregatorExitError;
-
     polls += 1;
     try {
       if (await ffe.inft.hasMinted(sessionId)) {
@@ -187,6 +129,7 @@ async function waitForMint(
 }
 
 async function main() {
+  // Run the real 0G fine-tuning path by default for pnpm start.
   process.env.USE_REAL_0G_TRAINING = "true";
 
   const wallet1Key = asPrivateKey("FFE_LIVE_WALLET_1");
@@ -328,17 +271,26 @@ async function main() {
   const submission2 = await ffe2.submit({sessionId, data: data2});
   console.log(`Contributor 2 blob: ${submission2.rootHash}`);
 
-  console.log("[4/6] Starting aggregator and real 0G training...");
-  const aggregatorProcess = startAggregatorProcess();
+  console.log("[4/6] Starting aggregator real 0G fine-tuning...");
+  const config = loadConfig();
+  let failSession: (error: Error) => void = () => {};
+  const sessionFailure = new Promise<never>((_, reject) => {
+    failSession = reject;
+  });
+  const stopOrchestrator = startOrchestrator({
+    config,
+    targetSessionId: sessionId,
+    onSessionError: (failedSessionId, error) => {
+      if (failedSessionId === sessionId) failSession(error);
+    },
+  });
 
   try {
     console.log("[5/6] Waiting for INFT mint...");
-    const tokenId = await waitForMint(
-      ffe1,
-      sessionId,
-      timeoutMs,
-      aggregatorProcess.getExitError
-    );
+    const tokenId = await Promise.race([
+      waitForMint(ffe1, sessionId, timeoutMs),
+      sessionFailure,
+    ]);
     console.log(`Token: ${tokenId}`);
 
     console.log("[6/6] Verifying both contributors can decrypt the same LoRA...");
@@ -354,18 +306,18 @@ async function main() {
     const outPath = join(OUTPUT_DIR, `ffe-live-lora-session-${sessionId}.bin`);
     await writeFile(outPath, Buffer.from(result1.data));
 
-    console.log("\nLive FFE training succeeded");
+    console.log("\nFFE live training succeeded");
     console.log(`Session: ${sessionId}`);
     console.log(`Token:   ${tokenId}`);
     console.log(`LoRA:    ${outPath}`);
     console.log(`Bytes:   ${result1.data.length}`);
   } finally {
-    await stopAggregatorProcess(aggregatorProcess);
+    stopOrchestrator();
   }
 }
 
 main().catch((err) => {
   const message = err instanceof Error ? err.message : String(err);
-  console.error(`\nLive FFE training failed: ${message}`);
+  console.error(`\nFFE live training failed: ${message}`);
   process.exit(1);
 });

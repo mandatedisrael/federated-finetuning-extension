@@ -18,6 +18,10 @@ import {
 export interface OrchestratorConfig {
   /** Aggregator configuration (loaded from env) */
   config: ReturnType<typeof loadConfig>;
+  /** Optional session allow-list for one-shot runners */
+  targetSessionId?: bigint;
+  /** Optional failure hook for one-shot runners */
+  onSessionError?: (sessionId: bigint, error: Error) => void;
 }
 
 export interface OrchestratorState {
@@ -56,6 +60,9 @@ export function startOrchestrator(config: OrchestratorConfig): () => void {
     config.config.rpcUrl,
     config.config.pollIntervalMs,
     async (payload: QuorumReachedPayload) => {
+      if (config.targetSessionId !== undefined && payload.sessionId !== config.targetSessionId) {
+        return;
+      }
       await handleQuorumReachedEvent(payload, config, state);
     }
   );
@@ -165,6 +172,8 @@ async function handleQuorumReachedEvent(
       error,
       timestamp: new Date(),
     });
+    config.onSessionError?.(sessionId, error);
+    throw error;
   } finally {
     state.activeSessionIds.delete(sessionId);
   }

@@ -78,8 +78,6 @@ export function startEventListener(
         // Only process sessions that have reached quorum
         if (sessionInfo.status !== 1) continue; // 1 = SessionStatus.QuorumReached
 
-        seen.add(sessionId);
-
         // Fetch the full data for this quorum-reached session
         const submitters = await coordinatorClient.getSubmitters(sessionId);
         const submissionsPromises = submitters.map((submitter) =>
@@ -115,6 +113,7 @@ export function startEventListener(
         };
 
         await onEvent(payload);
+        seen.add(sessionId);
       }
     } catch (err) {
       console.error("[EventListener] Poll error:", err);

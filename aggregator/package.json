@@ -27,9 +27,9 @@
     "test:live:simple": "FFE_LIVE_AGG=1 vitest run test/live/simple-local.live.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "start": "set -a; [ -f .env ] && . ./.env; set +a; pnpm build >/dev/null && node dist/start.js",
-    "keygen": "tsx scripts/keygen.ts",
-    "demo": "set -a; [ -f .env ] && . ./.env; set +a; tsx demo.ts"
+    "start": "set -a; [ -f .env ] && . ./.env; set +a; pnpm build >/dev/null && node dist/run.js",
+    "service": "set -a; [ -f .env ] && . ./.env; set +a; pnpm build >/dev/null && node dist/start.js",
+    "keygen": "tsx scripts/keygen.ts"
   },
   "dependencies": {
     "@0gfoundation/0g-compute-ts-sdk": "^0.8.0",

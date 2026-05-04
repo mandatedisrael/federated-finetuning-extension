@@ -9,10 +9,23 @@ import {createHash, randomBytes} from "crypto";
 import {createRequire} from "module";
 import {crypto as ffeCrypto} from "@notmartin/ffe";
 import {JsonRpcProvider, Wallet} from "ethers";
-import type {createZGComputeNetworkBroker as createBroker} from "@0gfoundation/0g-compute-ts-sdk";
+import type {
+  createFineTuningBroker as createFineTuning,
+  createZGComputeNetworkBroker as createBroker,
+} from "@0gfoundation/0g-compute-ts-sdk";
 
-const require = createRequire(import.meta.url);
-const {createZGComputeNetworkBroker} = require("@0gfoundation/0g-compute-ts-sdk") as {
+const require = createRequire(join(process.cwd(), "package.json"));
+const {
+  CONTRACT_ADDRESSES,
+  createFineTuningBroker,
+  createZGComputeNetworkBroker,
+} = require("@0gfoundation/0g-compute-ts-sdk") as {
+  CONTRACT_ADDRESSES: {
+    mainnet: {fineTuning: string};
+    testnet: {fineTuning: string};
+    hardhat: {fineTuning: string};
+  };
+  createFineTuningBroker: typeof createFineTuning;
   createZGComputeNetworkBroker: typeof createBroker;
 };
 
@@ -105,7 +118,11 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
   const ethersProvider = new JsonRpcProvider(ftRpcUrl);
   const signer = new Wallet(evmPrivateKey, ethersProvider);
   const broker = await createZGComputeNetworkBroker(signer);
-  const ft = broker.fineTuning;
+  const ft = broker.fineTuning ?? await createFineTuningBroker(
+    signer,
+    fineTuningContractForNetwork((await ethersProvider.getNetwork()).chainId),
+    broker.ledger
+  );
 
   if (!ft) {
     throw new Error("[TrainingBridge] Fine-tuning broker unavailable");
@@ -150,7 +167,7 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
         console.error(`[TEE] [${elapsed}s] Progress: ${progress}`);
         lastProgress = progress;
       }
-      if (progress === "Trained" || progress === "Delivered") break;
+      if (progress === "Delivered" || progress === "Finished") break;
       if (progress === "Failed" || progress === "Cancelled") {
         throw new Error(`[TrainingBridge] Task ${taskId} ended with status: ${progress}`);
       }
@@ -164,13 +181,25 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
     throw new Error(`[TrainingBridge] Training timed out after ${timeoutMs}ms (task: ${taskId})`);
   }
 
-  const adapterPath = join(tempDir, `lora_${taskId}.bin`);
-  console.error("[TEE] Downloading LoRA weights...");
-  await ft.acknowledgeModel(ftProviderAddress, taskId, adapterPath, {
-    downloadMethod: "auto",
-  });
+  const encryptedAdapterPath = join(tempDir, `lora_${taskId}.encrypted.bin`);
+  const adapterPath = join(tempDir, `lora_${taskId}.zip`);
+  console.error("[TEE] Downloading encrypted LoRA weights...");
+  await acknowledgeModelWithRetry(
+    ft,
+    ftProviderAddress,
+    taskId,
+    encryptedAdapterPath,
+    Math.max(0, deadline - Date.now())
+  );
+
+  console.error("[TEE] Waiting for provider settlement and decryption key...");
+  await waitForTaskProgress(ft, ftProviderAddress, taskId, "Finished", deadline);
+
+  console.error("[TEE] Decrypting LoRA weights...");
+  await ft.decryptModel(ftProviderAddress, taskId, encryptedAdapterPath, adapterPath);
 
   const adapterBytes = new Uint8Array(await readFile(adapterPath));
+  await rm(encryptedAdapterPath).catch(() => {});
   await rm(adapterPath).catch(() => {});
 
   console.error(`[TEE] Training complete — adapter size: ${adapterBytes.length} bytes`);
@@ -252,4 +281,86 @@ async function simulateTraining(options: TrainingBridgeOptions): Promise<{
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+async function acknowledgeModelWithRetry(
+  ft: {
+    acknowledgeModel(
+      providerAddress: string,
+      taskId: string,
+      dataPath: string,
+      options?: {downloadMethod?: "tee" | "0g-storage" | "auto"}
+    ): Promise<void>;
+  },
+  providerAddress: string,
+  taskId: string,
+  adapterPath: string,
+  timeoutMs: number
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+
+  while (true) {
+    attempt += 1;
+    try {
+      await ft.acknowledgeModel(providerAddress, taskId, adapterPath, {
+        downloadMethod: "auto",
+      });
+      return;
+    } catch (err) {
+      if (!isDeliverablePending(err) || Date.now() >= deadline) {
+        throw err;
+      }
+      const delayMs = Math.min(30_000, Math.max(5_000, deadline - Date.now()));
+      console.error(
+        `[TEE] Deliverable not ready yet for task ${taskId}; retry ${attempt} in ${Math.round(delayMs / 1000)}s`
+      );
+      await sleep(delayMs);
+    }
+  }
+}
+
+async function waitForTaskProgress(
+  ft: {
+    getTask(providerAddress: string, taskId: string): Promise<{progress?: string} | undefined>;
+  },
+  providerAddress: string,
+  taskId: string,
+  desiredProgress: string,
+  deadline: number
+): Promise<void> {
+  let lastProgress = "";
+  while (Date.now() < deadline) {
+    const task = await ft.getTask(providerAddress, taskId);
+    const progress = task?.progress ?? "unknown";
+    if (progress !== lastProgress) {
+      console.error(`[TEE] Progress: ${progress}`);
+      lastProgress = progress;
+    }
+    if (progress === desiredProgress) return;
+    if (progress === "Failed" || progress === "Cancelled") {
+      throw new Error(`[TrainingBridge] Task ${taskId} ended with status: ${progress}`);
+    }
+    await sleep(15_000);
+  }
+
+  throw new Error(`[TrainingBridge] Timed out waiting for task ${taskId} to reach ${desiredProgress}`);
+}
+
+function isDeliverablePending(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return (
+    message.includes("DeliverableNotExists") ||
+    message.includes("No deliverable found") ||
+    message.includes("Deliverable not acknowledged yet")
+  );
+}
+
+function fineTuningContractForNetwork(chainId: bigint): string {
+  if (process.env.FT_CONTRACT_ADDRESS) {
+    return process.env.FT_CONTRACT_ADDRESS;
+  }
+  if (chainId === 16661n) return CONTRACT_ADDRESSES.mainnet.fineTuning;
+  if (chainId === 16602n) return CONTRACT_ADDRESSES.testnet.fineTuning;
+  return CONTRACT_ADDRESSES.hardhat.fineTuning;
 }
