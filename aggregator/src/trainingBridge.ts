@@ -59,6 +59,50 @@ export interface TrainingResult {
   rawAdapterJson: string;
 }
 
+interface FineTuningLike {
+  acknowledgeModel(
+    providerAddress: string,
+    taskId: string,
+    dataPath: string,
+    options?: {downloadMethod?: "tee" | "0g-storage" | "auto"}
+  ): Promise<void>;
+  acknowledgeProviderSigner(providerAddress: string): Promise<void>;
+  cancelTask(providerAddress: string, taskId: string): Promise<string>;
+  createTask(
+    providerAddress: string,
+    preTrainedModelName: string,
+    datasetHash: string,
+    trainingPath: string
+  ): Promise<string>;
+  decryptModel(
+    providerAddress: string,
+    taskId: string,
+    encryptedModelPath: string,
+    decryptedModelPath: string
+  ): Promise<void>;
+  getTask(providerAddress: string, taskId: string): Promise<{progress?: string} | undefined>;
+  listTask(providerAddress: string): Promise<Array<{id?: string; progress?: string}>>;
+  uploadDatasetToTEE(
+    providerAddress: string,
+    datasetPath: string
+  ): Promise<{datasetHash: string; message: string}>;
+}
+
+export async function assertFineTuningProviderReady(options: {
+  evmPrivateKey: `0x${string}`;
+  ftRpcUrl: string;
+  ftProviderAddress: string;
+}): Promise<void> {
+  const ft = await createFineTuningClient(options.evmPrivateKey, options.ftRpcUrl);
+  const tasks = await ft.listTask(options.ftProviderAddress);
+  const unfinished = tasks.find((task) => !isTerminalTaskProgress(task.progress));
+  if (!unfinished) return;
+
+  throw new Error(
+    `[Preflight] Fine-tuning provider has unfinished task ${unfinished.id ?? "(unknown)"} with status ${unfinished.progress ?? "unknown"}. Wait until it is Finished, Failed, or Cancelled before running pnpm start.`
+  );
+}
+
 /**
  * Train a LoRA adapter for the given session's JSONL data.
  * Produces an AES-256-GCM encrypted adapter ready for upload to 0G Storage.
@@ -115,18 +159,7 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
 
   console.error(`[TEE] Connecting to 0G fine-tuning service at ${ftRpcUrl}`);
 
-  const ethersProvider = new JsonRpcProvider(ftRpcUrl);
-  const signer = new Wallet(evmPrivateKey, ethersProvider);
-  const broker = await createZGComputeNetworkBroker(signer);
-  const ft = broker.fineTuning ?? await createFineTuningBroker(
-    signer,
-    fineTuningContractForNetwork((await ethersProvider.getNetwork()).chainId),
-    broker.ledger
-  );
-
-  if (!ft) {
-    throw new Error("[TrainingBridge] Fine-tuning broker unavailable");
-  }
+  const ft = await createFineTuningClient(evmPrivateKey, ftRpcUrl);
 
   console.error(`[TEE] Acknowledging provider TEE signer: ${ftProviderAddress}`);
   await ft.acknowledgeProviderSigner(ftProviderAddress);
@@ -159,20 +192,23 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
 
   while (Date.now() < deadline) {
     await sleep(15_000);
+    let task;
     try {
-      const task = await ft.getTask(ftProviderAddress, taskId);
-      const progress = task?.progress ?? "unknown";
-      if (progress !== lastProgress) {
-        const elapsed = Math.round((Date.now() - startMs) / 1000);
-        console.error(`[TEE] [${elapsed}s] Progress: ${progress}`);
-        lastProgress = progress;
-      }
-      if (progress === "Delivered" || progress === "Finished") break;
-      if (progress === "Failed" || progress === "Cancelled") {
-        throw new Error(`[TrainingBridge] Task ${taskId} ended with status: ${progress}`);
-      }
+      task = await ft.getTask(ftProviderAddress, taskId);
     } catch (err) {
       console.error("[TEE] Provider busy, retrying...");
+      continue;
+    }
+
+    const progress = task?.progress ?? "unknown";
+    if (progress !== lastProgress) {
+      const elapsed = Math.round((Date.now() - startMs) / 1000);
+      console.error(`[TEE] [${elapsed}s] Progress: ${progress}`);
+      lastProgress = progress;
+    }
+    if (progress === "Delivered" || progress === "Finished") break;
+    if (progress === "Failed" || progress === "Cancelled") {
+      throw new Error(`[TrainingBridge] Task ${taskId} ended with status: ${progress}`);
     }
   }
 
@@ -284,14 +320,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function acknowledgeModelWithRetry(
-  ft: {
-    acknowledgeModel(
-      providerAddress: string,
-      taskId: string,
-      dataPath: string,
-      options?: {downloadMethod?: "tee" | "0g-storage" | "auto"}
-    ): Promise<void>;
-  },
+  ft: Pick<FineTuningLike, "acknowledgeModel">,
   providerAddress: string,
   taskId: string,
   adapterPath: string,
@@ -321,9 +350,7 @@ async function acknowledgeModelWithRetry(
 }
 
 async function waitForTaskProgress(
-  ft: {
-    getTask(providerAddress: string, taskId: string): Promise<{progress?: string} | undefined>;
-  },
+  ft: Pick<FineTuningLike, "getTask">,
   providerAddress: string,
   taskId: string,
   desiredProgress: string,
@@ -354,6 +381,30 @@ function isDeliverablePending(err: unknown): boolean {
     message.includes("No deliverable found") ||
     message.includes("Deliverable not acknowledged yet")
   );
+}
+
+async function createFineTuningClient(
+  evmPrivateKey: `0x${string}`,
+  ftRpcUrl: string
+): Promise<FineTuningLike> {
+  const ethersProvider = new JsonRpcProvider(ftRpcUrl);
+  const signer = new Wallet(evmPrivateKey, ethersProvider);
+  const broker = await createZGComputeNetworkBroker(signer);
+  const ft = broker.fineTuning ?? await createFineTuningBroker(
+    signer,
+    fineTuningContractForNetwork((await ethersProvider.getNetwork()).chainId),
+    broker.ledger
+  );
+
+  if (!ft) {
+    throw new Error("[TrainingBridge] Fine-tuning broker unavailable");
+  }
+
+  return ft as FineTuningLike;
+}
+
+function isTerminalTaskProgress(progress: string | undefined): boolean {
+  return progress === "Finished" || progress === "Failed" || progress === "Cancelled";
 }
 
 function fineTuningContractForNetwork(chainId: bigint): string {

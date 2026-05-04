@@ -19,6 +19,7 @@ import {privateKeyToAccount} from "viem/accounts";
 import {FFE, crypto} from "@notmartin/ffe";
 import {loadConfig} from "./config.js";
 import {startOrchestrator} from "./orchestrator.js";
+import {assertFineTuningProviderReady} from "./trainingBridge.js";
 
 const OUTPUT_DIR = "./output";
 const DEFAULT_RPC_URL = "https://evmrpc.0g.ai";
@@ -143,6 +144,7 @@ async function main() {
   const localStorageFallbackDir = process.env.FFE_LOCAL_STORAGE_DIR || "/tmp/ffe-storage";
   const baseModel = process.env.BASE_MODEL || DEFAULT_BASE_MODEL;
   const timeoutMs = envNumber("DEMO_TIMEOUT_MS", DEFAULT_TIMEOUT_MS);
+  const aggregatorConfig = loadConfig();
 
   const contributor1 = privateKeyToAccount(wallet1Key);
   const contributor2 = privateKeyToAccount(wallet2Key);
@@ -158,6 +160,11 @@ async function main() {
     },
     rpcUrl
   );
+  await assertFineTuningProviderReady({
+    evmPrivateKey: aggregatorConfig.evmPrivateKey,
+    ftRpcUrl: aggregatorConfig.ftRpcUrl,
+    ftProviderAddress: aggregatorConfig.ftProviderAddress,
+  });
 
   console.log("\nFFE live E2E training");
   console.log(`Coordinator: ${coordinatorAddress}`);
@@ -272,13 +279,12 @@ async function main() {
   console.log(`Contributor 2 blob: ${submission2.rootHash}`);
 
   console.log("[4/6] Starting aggregator real 0G fine-tuning...");
-  const config = loadConfig();
   let failSession: (error: Error) => void = () => {};
   const sessionFailure = new Promise<never>((_, reject) => {
     failSession = reject;
   });
   const stopOrchestrator = startOrchestrator({
-    config,
+    config: aggregatorConfig,
     targetSessionId: sessionId,
     onSessionError: (failedSessionId, error) => {
       if (failedSessionId === sessionId) failSession(error);
