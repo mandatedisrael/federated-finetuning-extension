@@ -147,7 +147,7 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 
 ### Phase 13 — Notifications & deep links
 - [x] 68. `feat(notify): add resumable deep-link routes per stage`
-- [ ] 69. `feat(notify): add email transition templates`
+- [x] 69. `feat(notify): add email transition templates`
 
 ### Phase 14 — Responsive & polish
 - [ ] 70. `feat(mobile): make dashboard, playground, and notifications responsive`
