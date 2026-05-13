@@ -106,8 +106,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 
 ### Phase 7 — Private contribution room
 - [x] 39. `feat(contribute): build 05 private room shell with sidebar and tab switcher`
-- [~] 40. `feat(contribute): add drag-and-drop upload zone with file-ready handoff`
-- [ ] 41. `feat(contribute): wire data concierge report under upload zone`
+- [x] 40. `feat(contribute): add drag-and-drop upload zone with file-ready handoff`
+- [~] 41. `feat(contribute): wire mock data concierge scan with findings list`
 - [ ] 42. `feat(contribute): add preview table with column confirmation`
 - [ ] 43. `feat(contribute): add encrypt → upload → submitted state machine animation`
 - [ ] 44. `feat(contribute): build 05b rewrite studio card layout`

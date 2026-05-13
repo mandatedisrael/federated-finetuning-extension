@@ -10,6 +10,9 @@ import { TrustBadge } from "@/components/domain/TrustBadge";
 import { StatusChip } from "@/components/domain/StatusChip";
 import { Badge } from "@/components/ui/Badge";
 import { UploadZone } from "@/components/contribute/UploadZone";
+import { DataConciergeRow } from "@/components/domain/DataConciergeRow";
+import { scanFiles, type ConciergeReport } from "@/lib/mock/dataConcierge";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject } from "@/lib/mock/seedDemo";
@@ -117,35 +120,79 @@ export default function ContributePage() {
   );
 }
 
+type UploadPhase = "idle" | "scanning" | "review" | "preview";
+
 function UploadFlow({ projectId: _projectId }: { projectId: string }) {
   const [files, setFiles] = React.useState<File[]>([]);
+  const [phase, setPhase] = React.useState<UploadPhase>("idle");
+  const [report, setReport] = React.useState<ConciergeReport | null>(null);
 
-  function handleFiles(next: File[]) {
+  async function handleFiles(next: File[]) {
     setFiles(next);
+    setPhase("scanning");
+    const r = await scanFiles(next);
+    setReport(r);
+    setPhase("review");
   }
 
-  if (files.length === 0) {
+  function reset() {
+    setFiles([]);
+    setReport(null);
+    setPhase("idle");
+  }
+
+  if (phase === "idle") {
     return <UploadZone onFiles={handleFiles} />;
   }
 
   return (
     <div className="space-y-4">
       <div className="border-border bg-surface flex items-center gap-3 rounded-[var(--radius-md)] border p-3">
-        <p className="text-foreground-muted flex-1 text-sm">
-          {files.length} {files.length === 1 ? "file" : "files"} ready ·{" "}
+        <p className="text-foreground-muted flex-1 truncate text-sm">
+          {files.length} {files.length === 1 ? "file" : "files"} ·{" "}
           {files.map((f) => f.name).join(", ")}
         </p>
         <button
           type="button"
           className="text-foreground-subtle hover:text-foreground text-xs underline-offset-2 hover:underline"
-          onClick={() => setFiles([])}
+          onClick={reset}
         >
           Start over
         </button>
       </div>
-      <div className="border-border bg-surface-muted/40 text-foreground-muted rounded-[var(--radius-lg)] border border-dashed p-10 text-center text-sm">
-        Data Concierge results show up here next.
-      </div>
+
+      {phase === "scanning" && (
+        <div className="border-border bg-surface flex items-center gap-3 rounded-[var(--radius-lg)] border p-6">
+          <Loader2 className="text-accent h-4 w-4 animate-spin" />
+          <p className="text-foreground-muted text-sm">
+            Scanning locally for duplicates, formatting, and private info — your files are not
+            uploaded yet.
+          </p>
+        </div>
+      )}
+
+      {phase === "review" && report && (
+        <div className="space-y-2">
+          <div className="text-foreground-subtle px-1 text-xs tracking-widest uppercase">
+            Data Concierge
+          </div>
+          {report.findings.map((f) => (
+            <DataConciergeRow
+              key={f.id}
+              kind={f.kind}
+              count={f.count}
+              description={f.description}
+              actions={f.actions}
+              onAction={() => {
+                // Mock: no-op for now. Real impl will update report state.
+              }}
+            />
+          ))}
+          <div className="border-border bg-surface-muted/40 text-foreground-muted rounded-[var(--radius-lg)] border border-dashed p-10 text-center text-sm">
+            Preview table + encrypt-and-submit ship next.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
