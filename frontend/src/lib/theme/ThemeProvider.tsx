@@ -17,17 +17,34 @@ const ThemeContext = React.createContext<ThemeContextValue | null>(null);
 
 const THEME_KEY = "ffe:theme";
 const SURFACE_KEY = "ffe:surface";
+const THEME_COOKIE = "ffe-theme";
+const SURFACE_COOKIE = "ffe-surface";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // one year
 
 function getSystemTheme(): "light" | "dark" {
   if (typeof window === "undefined") return "light";
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+function writeCookie(name: string, value: string) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${name}=${value}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
+}
+
+function clearCookie(name: string) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
+}
+
 function applyAttributes(theme: Theme, surface: Surface) {
   if (typeof document === "undefined") return;
-  const resolved = theme === "system" ? getSystemTheme() : theme;
-  document.documentElement.setAttribute("data-theme", resolved);
-  document.documentElement.setAttribute("data-surface", surface);
+  const html = document.documentElement;
+  if (theme === "system") {
+    html.removeAttribute("data-theme");
+  } else {
+    html.setAttribute("data-theme", theme);
+  }
+  html.setAttribute("data-surface", surface);
 }
 
 export function ThemeProvider({
@@ -45,7 +62,8 @@ export function ThemeProvider({
 
   React.useEffect(() => {
     const storedTheme = (localStorage.getItem(THEME_KEY) as Theme | null) ?? defaultTheme;
-    const storedSurface = (localStorage.getItem(SURFACE_KEY) as Surface | null) ?? defaultSurface;
+    const storedSurface =
+      (localStorage.getItem(SURFACE_KEY) as Surface | null) ?? defaultSurface;
     setThemeState(storedTheme);
     setSurfaceState(storedSurface);
     const resolved = storedTheme === "system" ? getSystemTheme() : storedTheme;
@@ -57,9 +75,7 @@ export function ThemeProvider({
     if (theme !== "system") return;
     const mql = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {
-      const resolved = mql.matches ? "dark" : "light";
-      setResolvedTheme(resolved);
-      document.documentElement.setAttribute("data-theme", resolved);
+      setResolvedTheme(mql.matches ? "dark" : "light");
     };
     mql.addEventListener("change", onChange);
     return () => mql.removeEventListener("change", onChange);
@@ -69,6 +85,11 @@ export function ThemeProvider({
     (next: Theme) => {
       setThemeState(next);
       localStorage.setItem(THEME_KEY, next);
+      if (next === "system") {
+        clearCookie(THEME_COOKIE);
+      } else {
+        writeCookie(THEME_COOKIE, next);
+      }
       const resolved = next === "system" ? getSystemTheme() : next;
       setResolvedTheme(resolved);
       applyAttributes(next, surface);
@@ -80,6 +101,7 @@ export function ThemeProvider({
     (next: Surface) => {
       setSurfaceState(next);
       localStorage.setItem(SURFACE_KEY, next);
+      writeCookie(SURFACE_COOKIE, next);
       applyAttributes(theme, next);
     },
     [theme],

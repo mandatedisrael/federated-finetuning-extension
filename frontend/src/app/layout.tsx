@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
-import Script from "next/script";
 import { ThemeProvider } from "@/lib/theme/ThemeProvider";
-import { themeInitScript } from "@/lib/theme/theme-script";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import "./globals.css";
 
@@ -29,23 +28,31 @@ export const metadata: Metadata = {
     "Collaboratively teach a shared AI assistant. Private contributions, encrypted before upload, co-owned results.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read persisted theme/surface from cookies so we can set the HTML
+  // attributes server-side. Avoids the dark-mode flash without any
+  // client-side script. When no cookie is present we omit the
+  // attributes and let CSS fall back to prefers-color-scheme.
+  const cookieStore = await cookies();
+  const theme = cookieStore.get("ffe-theme")?.value;
+  const surface = cookieStore.get("ffe-surface")?.value;
+  const resolvedTheme =
+    theme === "light" || theme === "dark" ? theme : undefined;
+  const resolvedSurface =
+    surface === "friendly" || surface === "technical" ? surface : "friendly";
+
   return (
     <html
       lang="en"
-      suppressHydrationWarning
+      data-theme={resolvedTheme}
+      data-surface={resolvedSurface}
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <Script
-          id="ffe-theme-init"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: themeInitScript }}
-        />
         <ThemeProvider>
           <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
