@@ -101,8 +101,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 34. `feat(dashboard): add contributor list with status chips and you tag`
 - [x] 35. `feat(dashboard): add prominent "your next action" callout block`
 - [x] 36. `feat(dashboard): add readiness checklist below progress bar`
-- [~] 37. `feat(dashboard): add owner-only settings sheet with goal/deadline/stake/invite-link`
-- [ ] 38. `feat(dashboard): add "you're up" in-app banner`
+- [x] 37. `feat(dashboard): add owner-only settings sheet with goal/deadline/stake/invite-link`
+- [~] 38. `feat(dashboard): add sticky "you're up" banner when current user blocks progress`
 
 ### Phase 7 — Private contribution room
 - [ ] 39. `feat(contribute): build 05 shell with sidebar and tab switcher`

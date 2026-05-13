@@ -166,8 +166,28 @@ export default function ProjectDashboardPage() {
   const template = getTemplate(project.templateId);
   const isOwner = user?.id === project.ownerId;
 
+  const me = user ? project.contributors.find((c) => c.id === user.id) : undefined;
+  const isBlockingDeploy = !!me && project.stage === "waiting" && me.status === "not-started";
+
   return (
     <main className="relative flex flex-1 flex-col">
+      {isBlockingDeploy && (
+        <motion.div
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          className="bg-accent text-accent-foreground sticky top-0 z-30 flex items-center justify-center gap-3 px-4 py-2 text-xs"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          <span>You&apos;re up — the project is waiting on your contribution.</span>
+          <Link
+            href={`/p/${project.id}/contribute`}
+            className="font-medium underline-offset-2 hover:underline"
+          >
+            Go contribute →
+          </Link>
+        </motion.div>
+      )}
       <header className="border-border mx-auto flex w-full max-w-6xl items-center justify-between border-b px-6 py-4">
         <div className="flex items-center gap-3">
           <Link href="/" className="font-serif text-lg tracking-tight">
