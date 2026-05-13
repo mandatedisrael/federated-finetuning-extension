@@ -112,7 +112,7 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 43. `feat(contribute): add encrypt → upload → submitted state machine`
 - [x] 44. `feat(contribute): build 05b rewrite studio cards`
 - [x] 45. `feat(contribute): add rewrite progress counter and target`
-- [~] 46. `feat(contribute): wire rewrite studio with encrypt-and-submit-all`
+- [x] 46. `feat(contribute): wire rewrite studio with encrypt-and-submit-all`
 
 ### Phase 8 — Rejection handling
 - [ ] 47. `feat(rejection): build 06 plain-language rejection screen`
