@@ -4,9 +4,10 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion } from "motion/react";
-import { ArrowLeft, AlertCircle } from "lucide-react";
+import { ArrowLeft, AlertCircle, ShieldCheck, RefreshCcw } from "lucide-react";
 import { TrustBadge } from "@/components/domain/TrustBadge";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { mockRejectionReport, type RejectionReason } from "@/lib/mock/rejection";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject } from "@/lib/mock/seedDemo";
@@ -76,8 +77,49 @@ export default function RejectionPage() {
             <ReasonRow key={reason.id} reason={reason} />
           ))}
         </div>
+
+        <DepositPanel project={project} />
       </motion.div>
     </main>
+  );
+}
+
+function DepositPanel({ project }: { project: Project }) {
+  const deadline = new Date(project.deadline).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  return (
+    <div className="border-trust/20 bg-[var(--trust-bg)]/40 rounded-[var(--radius-lg)] border p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="bg-trust/10 text-trust mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
+            <ShieldCheck className="h-4 w-4" />
+          </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-foreground text-sm font-medium tracking-tight">
+                Your ${project.stakeUsd} deposit is held — not slashed.
+              </h3>
+              <Badge tone="trust" outline>
+                Refundable
+              </Badge>
+            </div>
+            <p className="text-foreground-muted mt-1 text-sm leading-relaxed">
+              First rejections never count against you. Resubmit a fixed version by{" "}
+              <span className="text-foreground font-medium">{deadline}</span> and your deposit
+              returns in full when training completes.
+            </p>
+          </div>
+        </div>
+        <Button asChild size="lg" className="shrink-0">
+          <Link href={`/p/${project.id}/contribute`}>
+            <RefreshCcw className="h-4 w-4" />
+            Resubmit with changes
+          </Link>
+        </Button>
+      </div>
+    </div>
   );
 }
 
