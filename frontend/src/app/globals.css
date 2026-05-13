@@ -1,13 +1,88 @@
 @import "tailwindcss";
 
+/* ============================================================
+   FFE design tokens
+   Two surfaces share one token system:
+   - friendly  (community / consumer templates) — warmer, soft
+   - technical (enterprise / regulated)         — denser, sharper
+   The token names stay stable; only their values shift.
+   ============================================================ */
+
 :root {
-  --background: #ffffff;
+  /* Surface */
+  --background: #fbfaf7; /* warm off-white for friendly surface */
+  --surface: #ffffff;
+  --surface-muted: #f4f2ec;
   --foreground: #0a0a0a;
+  --foreground-muted: #5c5b57;
+  --foreground-subtle: #8a8a85;
+  --border: #e7e3dc;
+  --border-strong: #d4cfc4;
+
+  /* Accent — single accent color (deep ink blue) */
+  --accent: #1d4ed8;
+  --accent-hover: #1e40af;
+  --accent-foreground: #ffffff;
+  --accent-soft: #eef2ff;
+
+  /* Status palette (status chips: grey/blue/green/amber/red) */
+  --status-idle: #9a9893;
+  --status-idle-bg: #efece6;
+  --status-progress: #2563eb;
+  --status-progress-bg: #e0e9ff;
+  --status-success: #15803d;
+  --status-success-bg: #dcfce7;
+  --status-warning: #b45309;
+  --status-warning-bg: #fef3c7;
+  --status-danger: #b91c1c;
+  --status-danger-bg: #fee2e2;
+
+  /* Trust — encryption / privacy moments */
+  --trust: #047857;
+  --trust-bg: #d1fae5;
+  --trust-pulse: rgba(4, 120, 87, 0.45);
+}
+
+/* Technical surface override — applied via [data-surface="technical"] */
+[data-surface="technical"] {
+  --background: #ffffff;
+  --surface: #ffffff;
+  --surface-muted: #f6f7f9;
+  --foreground: #0a0a0a;
+  --foreground-muted: #4b5563;
+  --foreground-subtle: #6b7280;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --accent: #0f172a;
+  --accent-hover: #1e293b;
+  --accent-soft: #f1f5f9;
 }
 
 @theme inline {
+  /* Tailwind color tokens map to CSS variables so the surface
+     can be switched at runtime without re-generating classes. */
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
   --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-subtle: var(--foreground-subtle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-status-idle: var(--status-idle);
+  --color-status-progress: var(--status-progress);
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-danger: var(--status-danger);
+
+  --color-trust: var(--trust);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-serif: var(--font-instrument-serif);
@@ -15,8 +90,30 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --background: #0b0a08;
+    --surface: #131210;
+    --surface-muted: #1c1b18;
+    --foreground: #f5f4f0;
+    --foreground-muted: #a8a59c;
+    --foreground-subtle: #6e6c64;
+    --border: #2a2825;
+    --border-strong: #3a3833;
+    --accent-soft: #1a1f3a;
+    --trust-bg: #052e26;
+  }
+
+  [data-surface="technical"] {
     --background: #0a0a0a;
+    --surface: #0f0f10;
+    --surface-muted: #18181b;
     --foreground: #f5f5f5;
+    --foreground-muted: #a1a1aa;
+    --foreground-subtle: #71717a;
+    --border: #27272a;
+    --border-strong: #3f3f46;
+    --accent: #f5f5f5;
+    --accent-foreground: #0a0a0a;
+    --accent-soft: #1a1a1a;
   }
 }
 
