@@ -60,8 +60,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 
 ### Phase 1 — Design tokens & typography
 - [x] 5. `feat(theme): add instrument serif display font alongside geist`
-- [~] 6. `feat(theme): define color tokens for friendly and technical surfaces`
-- [ ] 7. `feat(theme): add spacing, radius, and motion tokens`
+- [x] 6. `feat(theme): define color tokens for friendly and technical surfaces`
+- [~] 7. `feat(theme): add radius, shadow, motion, and width tokens`
 - [ ] 8. `feat(theme): wire dark mode with css variables`
 
 ### Phase 2 — Primitive components
