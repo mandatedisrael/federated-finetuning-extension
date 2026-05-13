@@ -87,8 +87,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 24. `feat(join): add /join invite redemption page`
 
 ### Phase 5 — Owner: project creation
-- [~] 25. `feat(templates): seed template fixtures and types`
-- [ ] 26. `feat(templates): build 02 template picker grid`
+- [x] 25. `feat(templates): seed template fixtures and types`
+- [~] 26. `feat(templates): build 02 template picker grid`
 - [ ] 27. `feat(wizard): build 03 step 1 — goal input with typeform transitions`
 - [ ] 28. `feat(wizard): build 03 step 2 — invite list with role assignment`
 - [ ] 29. `feat(wizard): build 03 step 3 — deadline picker`
