@@ -172,27 +172,76 @@ function UploadFlow({ projectId: _projectId }: { projectId: string }) {
       )}
 
       {phase === "review" && report && (
-        <div className="space-y-2">
-          <div className="text-foreground-subtle px-1 text-xs tracking-widest uppercase">
-            Data Concierge
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <div className="text-foreground-subtle px-1 text-xs tracking-widest uppercase">
+              Data Concierge
+            </div>
+            {report.findings.map((f) => (
+              <DataConciergeRow
+                key={f.id}
+                kind={f.kind}
+                count={f.count}
+                description={f.description}
+                actions={f.actions}
+                onAction={() => {
+                  // Mock: no-op. Real impl mutates the report.
+                }}
+              />
+            ))}
           </div>
-          {report.findings.map((f) => (
-            <DataConciergeRow
-              key={f.id}
-              kind={f.kind}
-              count={f.count}
-              description={f.description}
-              actions={f.actions}
-              onAction={() => {
-                // Mock: no-op for now. Real impl will update report state.
-              }}
-            />
-          ))}
-          <div className="border-border bg-surface-muted/40 text-foreground-muted rounded-[var(--radius-lg)] border border-dashed p-10 text-center text-sm">
-            Preview table + encrypt-and-submit ship next.
-          </div>
+
+          <PreviewTable report={report} />
         </div>
       )}
+    </div>
+  );
+}
+
+function PreviewTable({ report }: { report: ConciergeReport }) {
+  return (
+    <div className="border-border bg-surface overflow-hidden rounded-[var(--radius-lg)] border">
+      <header className="border-border flex items-center justify-between gap-2 border-b px-5 py-3">
+        <div>
+          <p className="text-foreground-subtle text-xs tracking-widest uppercase">
+            Preview · first 3 rows after conversion
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <Badge tone="info" className="font-mono lowercase">
+            {report.detectedSchema.question}
+          </Badge>
+          <span className="text-foreground-subtle">→</span>
+          <Badge tone="success" className="font-mono lowercase">
+            {report.detectedSchema.answer}
+          </Badge>
+        </div>
+      </header>
+      <ul className="divide-border divide-y">
+        {report.previewRows.map((r, i) => (
+          <li key={i} className="grid gap-3 px-5 py-4 sm:grid-cols-2">
+            <div>
+              <p className="text-foreground-subtle mb-1 text-[10px] tracking-widest uppercase">
+                Question
+              </p>
+              <p className="text-foreground text-sm leading-relaxed">{r.question}</p>
+            </div>
+            <div>
+              <p className="text-foreground-subtle mb-1 text-[10px] tracking-widest uppercase">
+                Answer
+              </p>
+              <p className="text-foreground-muted text-sm leading-relaxed">{r.answer}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <footer className="border-border bg-surface-muted/40 border-t px-5 py-3">
+        <p className="text-foreground-muted text-xs">
+          Look right? Confirm the columns above and submit when ready. Wrong columns?{" "}
+          <button className="text-accent underline-offset-2 hover:underline">Change mapping</button>
+          .
+        </p>
+      </footer>
     </div>
   );
 }
