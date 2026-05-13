@@ -32,7 +32,7 @@ export function AuthGate({
   return (
     <>
       {trigger}
-      <SignInDialog open={open} onOpenChange={setOpen} redirectTo={redirectTo} />
+      {open && <SignInDialog open={open} onOpenChange={setOpen} redirectTo={redirectTo} />}
     </>
   );
 }

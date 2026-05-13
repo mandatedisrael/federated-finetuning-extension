@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { motion } from "motion/react";
 import { Link as LinkIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -73,9 +74,9 @@ function JoinInner() {
   return (
     <main className="relative flex flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 pt-6">
-        <a href="/" className="font-serif text-xl tracking-tight">
+        <Link href="/" className="font-serif text-xl tracking-tight">
           FFE<span className="text-foreground-subtle">.</span>
-        </a>
+        </Link>
         <TrustBadge />
       </header>
 
@@ -118,20 +119,22 @@ function JoinInner() {
           <div className="border-border bg-surface mt-10 rounded-[var(--radius-lg)] border p-4">
             <p className="text-foreground-muted text-xs leading-relaxed">
               You only need a code if you were invited. Want to start your own?{" "}
-              <a className="text-accent underline-offset-4 hover:underline" href="/new">
+              <Link className="text-accent underline-offset-4 hover:underline" href="/new">
                 Create a project
-              </a>
+              </Link>
               .
             </p>
           </div>
         </motion.div>
       </section>
 
-      <SignInDialog
-        open={showSignIn}
-        onOpenChange={setShowSignIn}
-        redirectTo={`/join?code=${encodeURIComponent(code)}`}
-      />
+      {showSignIn && (
+        <SignInDialog
+          open={showSignIn}
+          onOpenChange={setShowSignIn}
+          redirectTo={`/join?code=${encodeURIComponent(code)}`}
+        />
+      )}
     </main>
   );
 }

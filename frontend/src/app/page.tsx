@@ -1,12 +1,10 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
 import { TrustBadge } from "@/components/domain/TrustBadge";
-import { AuthGate } from "@/components/auth/AuthGate";
+import { AuthLinkButton } from "@/components/auth/AuthLinkButton";
 
 export default function LandingPage() {
   return (
     <main className="relative flex flex-1 flex-col">
-      {/* nav */}
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 pt-6">
         <Link href="/" className="font-serif text-xl tracking-tight">
           FFE<span className="text-foreground-subtle">.</span>
@@ -27,7 +25,6 @@ export default function LandingPage() {
         <TrustBadge />
       </header>
 
-      {/* hero */}
       <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-6 py-24 text-center">
         <p className="text-foreground-subtle mb-5 text-xs tracking-[0.2em] uppercase">
           Collaborative fine-tuning, without the jargon
@@ -43,16 +40,12 @@ export default function LandingPage() {
         </p>
 
         <div className="mt-10 flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
-          <AuthGate redirectTo="/new">
-            <Button size="lg" asChild>
-              <Link href="/new">Create a project</Link>
-            </Button>
-          </AuthGate>
-          <AuthGate redirectTo="/join">
-            <Button size="lg" variant="secondary" asChild>
-              <Link href="/join">I have an invite</Link>
-            </Button>
-          </AuthGate>
+          <AuthLinkButton href="/new" redirectTo="/new" size="lg">
+            Create a project
+          </AuthLinkButton>
+          <AuthLinkButton href="/join" redirectTo="/join" size="lg" variant="secondary">
+            I have an invite
+          </AuthLinkButton>
         </div>
 
         <p className="text-foreground-subtle mt-6 text-xs">
@@ -60,7 +53,6 @@ export default function LandingPage() {
         </p>
       </section>
 
-      {/* three plain nouns */}
       <section className="mx-auto w-full max-w-5xl px-6 pb-24">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           {[
