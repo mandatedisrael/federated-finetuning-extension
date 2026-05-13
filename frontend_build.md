@@ -146,7 +146,7 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 67. `feat(advanced): add conversion manifest viewer`
 
 ### Phase 13 — Notifications & deep links
-- [ ] 68. `feat(notify): add resumable deep-link routes per stage`
+- [x] 68. `feat(notify): add resumable deep-link routes per stage`
 - [ ] 69. `feat(notify): add email transition templates`
 
 ### Phase 14 — Responsive & polish
