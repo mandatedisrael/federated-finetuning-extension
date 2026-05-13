@@ -81,8 +81,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 20. `feat(components): add side-by-side chat panel shell`
 
 ### Phase 4 — Auth & landing
-- [~] 21. `feat(auth): add mock auth provider matching privy embedded-wallet shape`
-- [ ] 22. `feat(landing): build 01 landing page with headline and dual CTAs`
+- [x] 21. `feat(auth): add mock auth provider matching privy embedded-wallet shape`
+- [~] 22. `feat(landing): build 01 landing page with headline and dual CTAs`
 - [ ] 23. `feat(landing): add email and google sign-in flow`
 - [ ] 24. `feat(landing): add invite link redemption route`
 
@@ -159,8 +159,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 
 ## Check-in cadence
 
-Pause and sync with the user after **commit 22** (~30% mark, end of
-Phase 4 — auth + landing live). Update the plan before continuing.
+**First check-in: after commit 22 (~30%).** Reached. ✅
+Next planned pause: after commit 46 (Private Room complete).
 
 ## Notes
 
