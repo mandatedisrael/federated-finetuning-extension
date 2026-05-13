@@ -62,10 +62,10 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 5. `feat(theme): add instrument serif display font alongside geist`
 - [x] 6. `feat(theme): define color tokens for friendly and technical surfaces`
 - [x] 7. `feat(theme): add radius, shadow, motion, and width tokens`
-- [~] 8. `feat(theme): wire dark mode and surface toggle via theme provider`
+- [x] 8. `feat(theme): wire dark mode and surface toggle via theme provider`
 
 ### Phase 2 — Primitive components
-- [ ] 9. `feat(ui): add button, input, textarea, and label primitives`
+- [~] 9. `feat(ui): add button, input, textarea, and label primitives`
 - [ ] 10. `feat(ui): add card, separator, and badge primitives`
 - [ ] 11. `feat(ui): add dialog, sheet, and drawer primitives`
 - [ ] 12. `feat(ui): add tabs, toggle, and tooltip primitives`
