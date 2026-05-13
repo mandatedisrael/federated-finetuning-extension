@@ -136,8 +136,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 59. `feat(publish): build 09 publish-or-rerun screen`
 - [x] 60. `feat(publish): gate publish on must-pass with explicit override`
 - [x] 61. `feat(publish): add personal-receipt success state per contributor`
-- [ ] 62. `feat(versions): build 10 vertical version timeline`
-- [ ] 63. `feat(versions): add expandable row with try / rollback actions`
+- [x] 62. `feat(versions): build 10 vertical version timeline`
+- [x] 63. `feat(versions): add expandable row with try / rollback actions`
 
 ### Phase 12 — Advanced drawer
 - [ ] 64. `feat(advanced): build 11 slide-out drawer shell`

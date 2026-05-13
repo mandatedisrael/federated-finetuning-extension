@@ -67,6 +67,54 @@ export function seedMustPassResults(projectId: string) {
   });
 }
 
+export function seedDemoVersions(projectId: string) {
+  const project = projectStore.get(projectId);
+  if (!project || project.versions.length > 0) return;
+  const contribIds = project.contributors.map((c) => c.id);
+  const now = Date.now();
+  projectStore.update(projectId, {
+    versions: [
+      {
+        id: "v_demo3",
+        label: "Version 3",
+        summary: "Improved refund-policy answers across the test set.",
+        publishedAt: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        publishedBy: project.contributors[0]?.name ?? "Owner",
+        publishedById: project.ownerId,
+        mustPassPassed: 5,
+        mustPassTotal: 5,
+        contributorIds: contribIds.slice(0, 3),
+        voteSummary: { left: 4, right: 22, neither: 2 },
+      },
+      {
+        id: "v_demo2",
+        label: "Version 2",
+        summary: "Adjusted tone for enterprise users.",
+        publishedAt: new Date(now - 9 * 24 * 60 * 60 * 1000).toISOString(),
+        publishedBy: project.contributors[0]?.name ?? "Owner",
+        publishedById: project.ownerId,
+        mustPassPassed: 4,
+        mustPassTotal: 5,
+        contributorIds: contribIds.slice(0, 4),
+        voteSummary: { left: 7, right: 15, neither: 3 },
+        overridden: true,
+      },
+      {
+        id: "v_demo1",
+        label: "Version 1",
+        summary: "Initial run.",
+        publishedAt: new Date(now - 16 * 24 * 60 * 60 * 1000).toISOString(),
+        publishedBy: project.contributors[0]?.name ?? "Owner",
+        publishedById: project.ownerId,
+        mustPassPassed: 3,
+        mustPassTotal: 4,
+        contributorIds: contribIds.slice(0, 2),
+        voteSummary: { left: 11, right: 9, neither: 4 },
+      },
+    ],
+  });
+}
+
 export function seedSampleProgress(projectId: string) {
   const project = projectStore.get(projectId);
   if (!project) return;
