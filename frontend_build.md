@@ -59,7 +59,7 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [~] 4. `chore: tighten tsconfig and scaffold src directories`
 
 ### Phase 1 — Design tokens & typography
-- [ ] 5. `feat(theme): add geist sans, geist mono, and instrument serif via next/font`
+- [~] 5. `feat(theme): add instrument serif display font alongside geist`
 - [ ] 6. `feat(theme): define color tokens for friendly and technical surfaces`
 - [ ] 7. `feat(theme): add spacing, radius, and motion tokens`
 - [ ] 8. `feat(theme): wire dark mode with css variables`
