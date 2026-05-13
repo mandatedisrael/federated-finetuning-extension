@@ -10,7 +10,7 @@ import { StatusChip } from "@/components/domain/StatusChip";
 import { AvatarStack } from "@/components/domain/AvatarStack";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { FastForward } from "lucide-react";
+import { FastForward, Upload, ArrowRight, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject, seedSampleProgress } from "@/lib/mock/seedDemo";
@@ -83,7 +83,77 @@ export default function ProjectDashboardPage() {
           </p>
         </motion.div>
 
-        <section className="border-border bg-surface mt-10 rounded-[var(--radius-lg)] border p-6">
+        {(() => {
+          const me = user ? project.contributors.find((c) => c.id === user.id) : undefined;
+          if (!me) return null;
+          const isWaitingOnYou = project.stage === "waiting" && me.status === "not-started";
+          const isReady = project.stage === "ready";
+          const headline = isWaitingOnYou
+            ? "You're up."
+            : isReady
+              ? "The new version is ready."
+              : `Status: ${me.status.replace(/-/g, " ")}`;
+          const sub = isWaitingOnYou
+            ? "Add your training examples to keep the project moving."
+            : isReady
+              ? "Try the new model side-by-side and vote."
+              : "We'll update you when the project changes stage.";
+          const ctaHref = isReady ? `/p/${project.id}/result` : `/p/${project.id}/contribute`;
+          const ctaLabel = isReady ? "Try the new version" : "Go contribute";
+          const ctaIcon = isReady ? Sparkles : Upload;
+
+          return (
+            <motion.section
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+              className={
+                isWaitingOnYou
+                  ? "bg-accent text-accent-foreground mt-8 flex flex-col items-start justify-between gap-3 rounded-[var(--radius-lg)] p-5 shadow-[var(--shadow-md)] sm:flex-row sm:items-center"
+                  : "border-border bg-surface mt-8 flex flex-col items-start justify-between gap-3 rounded-[var(--radius-lg)] border p-5 sm:flex-row sm:items-center"
+              }
+            >
+              <div>
+                <p
+                  className={
+                    isWaitingOnYou
+                      ? "text-accent-foreground/70 mb-1 text-xs tracking-widest uppercase"
+                      : "text-foreground-subtle mb-1 text-xs tracking-widest uppercase"
+                  }
+                >
+                  Your next action
+                </p>
+                <h2 className="text-lg font-medium tracking-tight">{headline}</h2>
+                <p
+                  className={
+                    isWaitingOnYou
+                      ? "text-accent-foreground/80 mt-1 text-sm"
+                      : "text-foreground-muted mt-1 text-sm"
+                  }
+                >
+                  {sub}
+                </p>
+              </div>
+              <Button
+                asChild
+                variant={isWaitingOnYou ? "secondary" : "primary"}
+                className={
+                  isWaitingOnYou
+                    ? "text-foreground border-transparent bg-white hover:bg-white/90"
+                    : ""
+                }
+              >
+                <Link href={ctaHref}>
+                  {React.createElement(ctaIcon, { className: "h-4 w-4" })}
+                  {ctaLabel}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </motion.section>
+          );
+        })()}
+
+        <section className="border-border bg-surface mt-6 rounded-[var(--radius-lg)] border p-6">
           <div className="mb-4 flex items-center justify-between gap-2">
             <h2 className="text-sm font-medium tracking-tight">Progress</h2>
             {isOwner && (

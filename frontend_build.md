@@ -98,8 +98,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 ### Phase 6 — Project dashboard
 - [x] 32. `feat(dashboard): build 04 shell with role detection and demo seed`
 - [x] 33. `feat(dashboard): wire progress bar with owner-only stage advance`
-- [~] 34. `feat(dashboard): add contributor list with status chips and you tag`
-- [ ] 35. `feat(dashboard): add "you" row highlight and next-action prompt`
+- [x] 34. `feat(dashboard): add contributor list with status chips and you tag`
+- [~] 35. `feat(dashboard): add prominent "your next action" callout block`
 - [ ] 36. `feat(dashboard): add readiness checklist`
 - [ ] 37. `feat(dashboard): add owner-only controls`
 - [ ] 38. `feat(dashboard): add "you're up" in-app banner`
