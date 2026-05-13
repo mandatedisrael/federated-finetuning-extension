@@ -126,8 +126,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 ### Phase 10 — Result Playground
 - [x] 52. `feat(result): build 08 side-by-side chat panel with shared input`
 - [x] 53. `feat(result): add streaming responses via vercel ai sdk`
-- [ ] 54. `feat(result): add left/right/neither voting buttons`
-- [ ] 55. `feat(result): add structured feedback tag chips`
+- [x] 54. `feat(result): add left/right/neither voting buttons`
+- [x] 55. `feat(result): add structured feedback tag chips`
 - [ ] 56. `feat(result): add plain-english metrics card`
 - [ ] 57. `feat(result): add must-pass scenario result strip`
 - [ ] 58. `feat(result): add co-owner avatar row`
