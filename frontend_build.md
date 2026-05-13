@@ -108,8 +108,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 39. `feat(contribute): build 05 private room shell with sidebar and tab switcher`
 - [x] 40. `feat(contribute): add drag-and-drop upload zone with file-ready handoff`
 - [x] 41. `feat(contribute): wire mock data concierge scan with findings list`
-- [~] 42. `feat(contribute): add preview table with column-mapping confirmation`
-- [ ] 43. `feat(contribute): add encrypt → upload → submitted state machine animation`
+- [x] 42. `feat(contribute): add preview table with column-mapping confirmation`
+- [~] 43. `feat(contribute): add encrypt → upload → submitted state machine`
 - [ ] 44. `feat(contribute): build 05b rewrite studio card layout`
 - [ ] 45. `feat(contribute): add rewrite progress counter`
 - [ ] 46. `feat(contribute): add encrypt-and-submit-all flow for rewrites`

@@ -12,7 +12,9 @@ import { Badge } from "@/components/ui/Badge";
 import { UploadZone } from "@/components/contribute/UploadZone";
 import { DataConciergeRow } from "@/components/domain/DataConciergeRow";
 import { scanFiles, type ConciergeReport } from "@/lib/mock/dataConcierge";
-import { Loader2 } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { SubmitStateMachine, type SubmitPhase } from "@/components/contribute/SubmitStateMachine";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject } from "@/lib/mock/seedDemo";
@@ -120,12 +122,14 @@ export default function ContributePage() {
   );
 }
 
-type UploadPhase = "idle" | "scanning" | "review" | "preview";
+type UploadPhase = "idle" | "scanning" | "review" | "submitting" | "done";
 
-function UploadFlow({ projectId: _projectId }: { projectId: string }) {
+function UploadFlow({ projectId }: { projectId: string }) {
+  const { user } = useAuth();
   const [files, setFiles] = React.useState<File[]>([]);
   const [phase, setPhase] = React.useState<UploadPhase>("idle");
   const [report, setReport] = React.useState<ConciergeReport | null>(null);
+  const [submit, setSubmit] = React.useState<SubmitPhase>("idle");
 
   async function handleFiles(next: File[]) {
     setFiles(next);
@@ -139,6 +143,33 @@ function UploadFlow({ projectId: _projectId }: { projectId: string }) {
     setFiles([]);
     setReport(null);
     setPhase("idle");
+    setSubmit("idle");
+  }
+
+  async function handleSubmit() {
+    if (!report) return;
+    setPhase("submitting");
+    setSubmit("encrypting");
+    await new Promise((r) => setTimeout(r, 1100));
+    setSubmit("uploading");
+    await new Promise((r) => setTimeout(r, 1100));
+    setSubmit("submitted");
+
+    // Mark current user's contribution as uploaded in the store.
+    if (user) {
+      const p = projectStore.get(projectId);
+      if (p) {
+        const updated = p.contributors.map((c) =>
+          c.id === user.id
+            ? { ...c, status: "uploaded" as const, exampleCount: report.usableCount }
+            : c,
+        );
+        projectStore.update(projectId, { contributors: updated });
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, 600));
+    setPhase("done");
   }
 
   if (phase === "idle") {
@@ -192,6 +223,47 @@ function UploadFlow({ projectId: _projectId }: { projectId: string }) {
           </div>
 
           <PreviewTable report={report} />
+
+          <div className="border-border bg-surface flex flex-col items-center justify-between gap-3 rounded-[var(--radius-lg)] border p-4 sm:flex-row">
+            <p className="text-foreground-muted text-xs leading-relaxed">
+              Submitting will encrypt your data in this browser and upload only the ciphertext.
+              Plaintext never leaves your machine.
+            </p>
+            <Button onClick={handleSubmit} size="lg">
+              <Lock className="h-4 w-4" />
+              Encrypt and submit
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {(phase === "submitting" || phase === "done") && (
+        <div className="border-border bg-surface flex flex-col items-center gap-5 rounded-[var(--radius-lg)] border p-10 text-center">
+          <SubmitStateMachine phase={submit} />
+          {phase === "done" ? (
+            <>
+              <div>
+                <h3 className="font-serif text-3xl tracking-tight">Submitted.</h3>
+                <p className="text-foreground-muted mt-1 max-w-md text-sm leading-relaxed">
+                  Your contribution is in the queue. You&apos;ll get a notification when training
+                  completes — and a personal receipt showing your data was included in the shared
+                  improvement.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button asChild>
+                  <Link href={`/p/${projectId}`}>Back to project</Link>
+                </Button>
+                <Button variant="ghost" onClick={reset}>
+                  Submit more
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-foreground-muted text-sm">
+              Keep this tab open — encryption runs locally.
+            </p>
+          )}
         </div>
       )}
     </div>
