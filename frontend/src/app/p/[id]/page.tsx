@@ -18,12 +18,126 @@ import {
   Check,
   Circle,
   AlertCircle,
+  Settings,
+  Copy,
 } from "lucide-react";
+import {
+  Sheet,
+  SheetTrigger,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetBody,
+  SheetFooter,
+  SheetClose,
+} from "@/components/ui/Sheet";
+import { Textarea } from "@/components/ui/Textarea";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject, seedSampleProgress } from "@/lib/mock/seedDemo";
 import { getTemplate } from "@/lib/mock/templates";
 import type { Project } from "@/lib/mock/types";
+
+function ProjectSettingsButton({
+  project,
+  onUpdate,
+}: {
+  project: Project;
+  onUpdate: (p: Project) => void;
+}) {
+  const [goal, setGoal] = React.useState(project.goal);
+  const [deadline, setDeadline] = React.useState(project.deadline);
+  const [stake, setStake] = React.useState(project.stakeUsd);
+  const [copied, setCopied] = React.useState(false);
+  const [origin, setOrigin] = React.useState("");
+
+  React.useEffect(() => setOrigin(window.location.origin), []);
+
+  function save() {
+    const updated = projectStore.update(project.id, {
+      goal: goal.trim(),
+      deadline,
+      stakeUsd: stake,
+    });
+    if (updated) onUpdate(updated);
+  }
+
+  async function copyLink() {
+    await navigator.clipboard.writeText(`${origin}/join?code=${project.inviteCode}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  }
+
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Project settings">
+          <Settings className="h-4 w-4" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent>
+        <SheetHeader>
+          <SheetTitle>Project settings</SheetTitle>
+          <SheetDescription>Owner-only. Changes save when you click Save.</SheetDescription>
+        </SheetHeader>
+        <SheetBody className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="set-goal">Goal</Label>
+            <Textarea
+              id="set-goal"
+              rows={3}
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="set-deadline">Deadline</Label>
+            <Input
+              id="set-deadline"
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="set-stake">Deposit (USD)</Label>
+            <Input
+              id="set-stake"
+              type="number"
+              min={0}
+              value={stake}
+              onChange={(e) => setStake(Math.max(0, Number(e.target.value) || 0))}
+            />
+          </div>
+
+          <div className="border-border space-y-2 border-t pt-4">
+            <Label>Invite link</Label>
+            <div className="border-border bg-surface-muted/40 flex items-center gap-2 rounded-[var(--radius-md)] border p-2">
+              <code className="text-foreground-muted flex-1 truncate font-mono text-xs">
+                {origin}/join?code={project.inviteCode}
+              </code>
+              <Button variant="secondary" size="sm" onClick={copyLink}>
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? "Copied" : "Copy"}
+              </Button>
+            </div>
+          </div>
+        </SheetBody>
+        <SheetFooter>
+          <SheetClose asChild>
+            <Button variant="ghost">Cancel</Button>
+          </SheetClose>
+          <SheetClose asChild>
+            <Button onClick={save}>Save</Button>
+          </SheetClose>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  );
+}
 
 export default function ProjectDashboardPage() {
   const params = useParams<{ id: string }>();
@@ -70,6 +184,7 @@ export default function ProjectDashboardPage() {
           ) : (
             <Badge>Contributor</Badge>
           )}
+          {isOwner && <ProjectSettingsButton project={project} onUpdate={(p) => setProject(p)} />}
           <TrustBadge />
         </div>
       </header>

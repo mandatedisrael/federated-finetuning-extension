@@ -100,8 +100,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 33. `feat(dashboard): wire progress bar with owner-only stage advance`
 - [x] 34. `feat(dashboard): add contributor list with status chips and you tag`
 - [x] 35. `feat(dashboard): add prominent "your next action" callout block`
-- [~] 36. `feat(dashboard): add readiness checklist below progress bar`
-- [ ] 37. `feat(dashboard): add owner-only controls`
+- [x] 36. `feat(dashboard): add readiness checklist below progress bar`
+- [~] 37. `feat(dashboard): add owner-only settings sheet with goal/deadline/stake/invite-link`
 - [ ] 38. `feat(dashboard): add "you're up" in-app banner`
 
 ### Phase 7 — Private contribution room
