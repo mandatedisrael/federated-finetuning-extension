@@ -140,10 +140,10 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 63. `feat(versions): add expandable row with try / rollback actions`
 
 ### Phase 12 — Advanced drawer
-- [ ] 64. `feat(advanced): build 11 slide-out drawer shell`
-- [ ] 65. `feat(advanced): wire tee attestation and code hash section`
-- [ ] 66. `feat(advanced): add storage root hashes and inft record section`
-- [ ] 67. `feat(advanced): add conversion manifest viewer`
+- [x] 64. `feat(advanced): build 11 slide-out drawer shell`
+- [x] 65. `feat(advanced): wire tee attestation and code hash section`
+- [x] 66. `feat(advanced): add storage root hashes and inft record section`
+- [x] 67. `feat(advanced): add conversion manifest viewer`
 
 ### Phase 13 — Notifications & deep links
 - [ ] 68. `feat(notify): add resumable deep-link routes per stage`

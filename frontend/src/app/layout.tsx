@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { ThemeProvider } from "@/lib/theme/ThemeProvider";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
+import { AdvancedDrawerProvider } from "@/lib/advanced/AdvancedDrawerProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -54,7 +55,9 @@ export default async function RootLayout({
     >
       <body className="flex min-h-full flex-col">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <AdvancedDrawerProvider>{children}</AdvancedDrawerProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

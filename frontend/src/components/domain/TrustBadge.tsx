@@ -4,6 +4,7 @@ import * as React from "react";
 import { Lock } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/cn";
+import { useAdvancedDrawer } from "@/lib/advanced/AdvancedDrawerProvider";
 
 /**
  * Trust badge. The persistent privacy signal — visible on every screen
@@ -21,7 +22,7 @@ interface TrustBadgeProps extends React.ButtonHTMLAttributes<HTMLButtonElement> 
 }
 
 export const TrustBadge = React.forwardRef<HTMLButtonElement, TrustBadgeProps>(
-  ({ className, variant = "idle", label, ...props }, ref) => {
+  ({ className, variant = "idle", label, onClick, ...props }, ref) => {
     const copy =
       label ??
       (variant === "encrypting"
@@ -31,11 +32,19 @@ export const TrustBadge = React.forwardRef<HTMLButtonElement, TrustBadgeProps>(
           : "Your data is encrypted before upload");
 
     const pulsing = variant === "encrypting";
+    const advanced = useAdvancedDrawer();
+
+    function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
+      onClick?.(e);
+      if (e.defaultPrevented) return;
+      advanced?.open();
+    }
 
     return (
       <button
         ref={ref}
         type="button"
+        onClick={handleClick}
         className={cn(
           "group relative inline-flex items-center gap-2",
           "px-3 py-1.5 text-xs font-medium tracking-tight",
