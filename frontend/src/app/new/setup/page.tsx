@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Calendar } from "lucide-react";
 import { WizardShell, type WizardStep } from "@/components/wizard/WizardShell";
 import { Textarea } from "@/components/ui/Textarea";
 import { Input } from "@/components/ui/Input";
@@ -22,6 +22,29 @@ interface Invitee {
 interface WizardState {
   goal: string;
   invitees: Invitee[];
+  deadline: string; // YYYY-MM-DD
+}
+
+const DEFAULT_DAYS_OUT = 7;
+
+function isoNDaysFromNow(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function humanizeDelta(iso: string): string {
+  if (!iso) return "";
+  const target = new Date(iso + "T23:59:59");
+  const now = new Date();
+  const ms = target.getTime() - now.getTime();
+  const days = Math.round(ms / (1000 * 60 * 60 * 24));
+  if (days < 0) return "in the past";
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days < 14) return `in ${days} days`;
+  if (days < 60) return `in ~${Math.round(days / 7)} weeks`;
+  return `in ~${Math.round(days / 30)} months`;
 }
 
 function newInvitee(): Invitee {
@@ -49,6 +72,7 @@ export default function SetupWizardPage() {
   const [state, setState] = React.useState<WizardState>({
     goal: template?.goal ?? "",
     invitees: [newInvitee()],
+    deadline: isoNDaysFromNow(DEFAULT_DAYS_OUT),
   });
   const [index, setIndex] = React.useState(0);
 
@@ -180,6 +204,58 @@ export default function SetupWizardPage() {
             {validInvitees.length} ready · {state.invitees.length - validInvitees.length} pending —
             emails and wallets are both fine.
           </p>
+        </div>
+      ),
+    },
+    {
+      id: "deadline",
+      label: "Deadline",
+      isValid: () =>
+        Boolean(state.deadline) && new Date(state.deadline) > new Date(Date.now() - 86_400_000),
+      render: () => (
+        <div className="space-y-6">
+          <div>
+            <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">
+              When do contributions close?
+            </h1>
+            <p className="text-foreground-muted mt-3 text-base leading-relaxed">
+              After the deadline, the project moves into training automatically. You can extend it
+              later if contributors need more time.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <Label htmlFor="deadline">Deadline</Label>
+            <div className="relative">
+              <Calendar className="text-foreground-subtle pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+              <Input
+                id="deadline"
+                type="date"
+                className="pl-9"
+                value={state.deadline}
+                min={isoNDaysFromNow(1)}
+                onChange={(e) => setState((s) => ({ ...s, deadline: e.target.value }))}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {[3, 7, 14, 30].map((d) => (
+                <Button
+                  key={d}
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setState((s) => ({ ...s, deadline: isoNDaysFromNow(d) }))}
+                >
+                  +{d} days
+                </Button>
+              ))}
+            </div>
+            {state.deadline && (
+              <p className="text-foreground-subtle text-xs">
+                Closes {humanizeDelta(state.deadline)} · {state.deadline}
+              </p>
+            )}
+          </div>
         </div>
       ),
     },

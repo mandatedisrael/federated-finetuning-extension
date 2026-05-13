@@ -90,8 +90,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 25. `feat(templates): seed template fixtures and types`
 - [x] 26. `feat(templates): build 02 template picker grid`
 - [x] 27. `feat(wizard): scaffold wizard shell and step 1 — goal input`
-- [~] 28. `feat(wizard): add step 2 — invite list with role assignment`
-- [ ] 29. `feat(wizard): build 03 step 3 — deadline picker`
+- [x] 28. `feat(wizard): add step 2 — invite list with role assignment`
+- [~] 29. `feat(wizard): add step 3 — deadline picker with quick-pick presets`
 - [ ] 30. `feat(wizard): build 03 step 4 — stake disclosure with advanced toggle`
 - [ ] 31. `feat(wizard): add shareable invite link generation on completion`
 
