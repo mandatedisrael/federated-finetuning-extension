@@ -72,8 +72,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 13. `chore(ui): add /kitchen route to preview all primitives`
 
 ### Phase 3 — Domain components
-- [~] 14. `feat(components): add trust badge with encryption pulse animation`
-- [ ] 15. `feat(components): add four-stage progress bar with liquid fill`
+- [x] 14. `feat(components): add trust badge with encryption pulse animation`
+- [~] 15. `feat(components): add four-stage progress bar with liquid fill`
 - [ ] 16. `feat(components): add status chip with fixed color palette`
 - [ ] 17. `feat(components): add co-owner avatar stack with overflow`
 - [ ] 18. `feat(components): add data concierge finding row`
