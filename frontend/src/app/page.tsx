@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { TrustBadge } from "@/components/domain/TrustBadge";
+import { AuthGate } from "@/components/auth/AuthGate";
 
 export default function LandingPage() {
   return (
@@ -42,12 +43,16 @@ export default function LandingPage() {
         </p>
 
         <div className="mt-10 flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
-          <Button size="lg" asChild>
-            <Link href="/new">Create a project</Link>
-          </Button>
-          <Button size="lg" variant="secondary" asChild>
-            <Link href="/join">I have an invite</Link>
-          </Button>
+          <AuthGate redirectTo="/new">
+            <Button size="lg" asChild>
+              <Link href="/new">Create a project</Link>
+            </Button>
+          </AuthGate>
+          <AuthGate redirectTo="/join">
+            <Button size="lg" variant="secondary" asChild>
+              <Link href="/join">I have an invite</Link>
+            </Button>
+          </AuthGate>
         </div>
 
         <p className="text-foreground-subtle mt-6 text-xs">
