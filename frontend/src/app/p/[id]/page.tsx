@@ -5,7 +5,10 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { TrustBadge } from "@/components/domain/TrustBadge";
+import { ProgressBar, PROJECT_STAGES } from "@/components/domain/ProgressBar";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { FastForward } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject, seedSampleProgress } from "@/lib/mock/seedDemo";
@@ -78,11 +81,29 @@ export default function ProjectDashboardPage() {
           </p>
         </motion.div>
 
-        {/* Placeholder slots for: progress bar, contributor list,
-            readiness checklist, owner controls. Built in next commits. */}
-        <div className="border-border bg-surface-muted/40 text-foreground-muted mt-10 rounded-[var(--radius-lg)] border border-dashed p-10 text-center text-sm">
-          Dashboard sections coming online — progress, contributors, readiness checklist, banners.
-        </div>
+        <section className="border-border bg-surface mt-10 rounded-[var(--radius-lg)] border p-6">
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-medium tracking-tight">Progress</h2>
+            {isOwner && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const i = PROJECT_STAGES.indexOf(project.stage);
+                  const next = PROJECT_STAGES[Math.min(i + 1, PROJECT_STAGES.length - 1)];
+                  if (next) {
+                    const updated = projectStore.update(project.id, { stage: next });
+                    if (updated) setProject(updated);
+                  }
+                }}
+              >
+                <FastForward className="h-3.5 w-3.5" />
+                Advance (demo)
+              </Button>
+            )}
+          </div>
+          <ProgressBar stage={project.stage} />
+        </section>
       </section>
     </main>
   );

@@ -96,8 +96,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 31. `feat(wizard): persist project, generate invite link, build /new/done`
 
 ### Phase 6 — Project dashboard
-- [~] 32. `feat(dashboard): build 04 shell with role detection and demo seed`
-- [ ] 33. `feat(dashboard): add progress bar and current stage highlight`
+- [x] 32. `feat(dashboard): build 04 shell with role detection and demo seed`
+- [~] 33. `feat(dashboard): wire progress bar with owner-only stage advance`
 - [ ] 34. `feat(dashboard): add contributor list with status chips`
 - [ ] 35. `feat(dashboard): add "you" row highlight and next-action prompt`
 - [ ] 36. `feat(dashboard): add readiness checklist`
