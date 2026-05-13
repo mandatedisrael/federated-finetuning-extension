@@ -124,8 +124,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 51. `feat(must-pass): add minimum-3 validation and pass/fail chips`
 
 ### Phase 10 — Result Playground
-- [ ] 52. `feat(result): build 08 side-by-side chat panel with shared input`
-- [ ] 53. `feat(result): add streaming responses via vercel ai sdk`
+- [x] 52. `feat(result): build 08 side-by-side chat panel with shared input`
+- [x] 53. `feat(result): add streaming responses via vercel ai sdk`
 - [ ] 54. `feat(result): add left/right/neither voting buttons`
 - [ ] 55. `feat(result): add structured feedback tag chips`
 - [ ] 56. `feat(result): add plain-english metrics card`
