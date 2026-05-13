@@ -10,7 +10,15 @@ import { StatusChip } from "@/components/domain/StatusChip";
 import { AvatarStack } from "@/components/domain/AvatarStack";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { FastForward, Upload, ArrowRight, Sparkles } from "lucide-react";
+import {
+  FastForward,
+  Upload,
+  ArrowRight,
+  Sparkles,
+  Check,
+  Circle,
+  AlertCircle,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject, seedSampleProgress } from "@/lib/mock/seedDemo";
@@ -175,6 +183,63 @@ export default function ProjectDashboardPage() {
             )}
           </div>
           <ProgressBar stage={project.stage} />
+
+          {(() => {
+            const uploaded = project.contributors.filter((c) => c.status !== "not-started").length;
+            const total = project.contributors.length;
+            const mustPassSet = project.mustPass.length >= 3;
+            const daysLeft = Math.max(
+              0,
+              Math.round(
+                (new Date(project.deadline + "T23:59:59").getTime() - Date.now()) /
+                  (1000 * 60 * 60 * 24),
+              ),
+            );
+            const items = [
+              {
+                ok: uploaded === total,
+                warn: uploaded > 0 && uploaded < total,
+                label: `${uploaded} of ${total} contributors uploaded`,
+              },
+              {
+                ok: mustPassSet,
+                warn: false,
+                label: mustPassSet ? "Must-Pass Scenarios set" : "Must-Pass Scenarios not yet set",
+              },
+              {
+                ok: daysLeft > 1,
+                warn: daysLeft <= 1,
+                label:
+                  daysLeft === 0
+                    ? "Deadline is today"
+                    : daysLeft === 1
+                      ? "Deadline is tomorrow"
+                      : `Deadline in ${daysLeft} days`,
+              },
+            ];
+            return (
+              <ul className="border-border mt-6 grid gap-2 border-t pt-5 text-sm sm:grid-cols-3">
+                {items.map((it, i) => {
+                  const Icon = it.ok ? Check : it.warn ? AlertCircle : Circle;
+                  return (
+                    <li
+                      key={i}
+                      className={
+                        it.ok
+                          ? "text-foreground flex items-center gap-2"
+                          : it.warn
+                            ? "text-status-warning flex items-center gap-2"
+                            : "text-foreground-subtle flex items-center gap-2"
+                      }
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="text-xs tracking-tight">{it.label}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            );
+          })()}
         </section>
 
         <section className="border-border bg-surface mt-6 rounded-[var(--radius-lg)] border">
