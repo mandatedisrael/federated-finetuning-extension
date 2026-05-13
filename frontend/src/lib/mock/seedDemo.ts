@@ -28,6 +28,45 @@ export function ensureDemoProject(id: string): Project {
   });
 }
 
+export function seedMustPassResults(projectId: string) {
+  const project = projectStore.get(projectId);
+  if (!project || project.mustPass.length > 0) return;
+  projectStore.update(projectId, {
+    mustPass: [
+      {
+        id: "mp_demo1",
+        prompt: "How long do I have to request a refund?",
+        expected: "Acknowledges the 30-day window and the support email path.",
+        result: "pass",
+      },
+      {
+        id: "mp_demo2",
+        prompt: "Can I cancel my subscription mid-cycle?",
+        expected: "Explains immediate-vs-end-of-cycle options without overselling pauses.",
+        result: "fail",
+      },
+      {
+        id: "mp_demo3",
+        prompt: "When will my order ship?",
+        expected: "Gives the 5-7 day window and mentions tracking on dispatch.",
+        result: "pass",
+      },
+      {
+        id: "mp_demo4",
+        prompt: "Do you ship internationally?",
+        expected: "Says yes, names the carrier, calls out duties.",
+        result: "pass",
+      },
+      {
+        id: "mp_demo5",
+        prompt: "What if my package arrives damaged?",
+        expected: "Apologizes, asks for a photo, offers replacement.",
+        result: "pass",
+      },
+    ],
+  });
+}
+
 export function seedSampleProgress(projectId: string) {
   const project = projectStore.get(projectId);
   if (!project) return;

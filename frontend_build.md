@@ -128,9 +128,9 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 53. `feat(result): add streaming responses via vercel ai sdk`
 - [x] 54. `feat(result): add left/right/neither voting buttons`
 - [x] 55. `feat(result): add structured feedback tag chips`
-- [ ] 56. `feat(result): add plain-english metrics card`
-- [ ] 57. `feat(result): add must-pass scenario result strip`
-- [ ] 58. `feat(result): add co-owner avatar row`
+- [x] 56. `feat(result): add plain-english metrics card`
+- [x] 57. `feat(result): add must-pass scenario result strip`
+- [x] 58. `feat(result): add co-owner avatar row`
 
 ### Phase 11 — Publish & versions
 - [ ] 59. `feat(publish): build 09 publish-or-rerun screen`

@@ -12,9 +12,11 @@ import {
 } from "@/components/domain/SideBySideChat";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { MetricCard } from "@/components/domain/MetricCard";
+import { AvatarStack } from "@/components/domain/AvatarStack";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { projectStore } from "@/lib/mock/projectStore";
-import { ensureDemoProject } from "@/lib/mock/seedDemo";
+import { ensureDemoProject, seedMustPassResults } from "@/lib/mock/seedDemo";
 import { streamMockReply, type MockStream } from "@/lib/mock/mockChat";
 import type { Project } from "@/lib/mock/types";
 
@@ -164,7 +166,10 @@ export default function ResultPlaygroundPage() {
 
   React.useEffect(() => {
     if (!params?.id) return;
-    setProject(projectStore.get(params.id) ?? ensureDemoProject(params.id));
+    const id = params.id;
+    const p = projectStore.get(id) ?? ensureDemoProject(id);
+    seedMustPassResults(p.id);
+    setProject(projectStore.get(id) ?? p);
   }, [params?.id]);
 
   React.useEffect(() => {
@@ -224,6 +229,25 @@ export default function ResultPlaygroundPage() {
   }
 
   const latestComparison = comparisons[comparisons.length - 1];
+  const contributors = project?.contributors ?? [];
+  const trainedBy = contributors.filter(
+    (c) => c.status === "included" || c.status === "validated" || c.role === "owner",
+  );
+  const trainedByNames = trainedBy
+    .slice(0, 3)
+    .map((c) => c.name.split(" ")[0])
+    .filter(Boolean) as string[];
+  const trainedByLabel =
+    trainedByNames.length === 0
+      ? "Trained by your team"
+      : trainedByNames.length === 1
+        ? `Trained by ${trainedByNames[0]}`
+        : trainedByNames.length === 2
+          ? `Trained by ${trainedByNames[0]} and ${trainedByNames[1]}`
+          : `Trained by ${trainedByNames.slice(0, -1).join(", ")}, and ${trainedByNames.slice(-1)[0]}`;
+
+  const mustPass = project?.mustPass ?? [];
+  const mustPassPassed = mustPass.filter((s) => s.result === "pass").length;
 
   return (
     <main className="relative flex flex-1 flex-col">
@@ -272,7 +296,88 @@ export default function ResultPlaygroundPage() {
             the new model trained on this round&apos;s contributions.
             {user?.displayName ? ` Welcome, ${user.displayName.split(" ")[0]}.` : ""}
           </p>
+
+          <div className="border-border bg-surface mt-6 inline-flex items-center gap-3 rounded-[var(--radius-pill)] border px-3 py-1.5">
+            <AvatarStack
+              size="sm"
+              max={5}
+              people={trainedBy.map((c) => ({ id: c.id, name: c.name }))}
+            />
+            <span className="text-foreground-muted text-xs">{trainedByLabel}</span>
+          </div>
         </motion.div>
+
+        <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <MetricCard
+            value="78%"
+            description="Won 78% of comparisons against the previous version."
+            trend="up"
+            trendLabel="+12 pts"
+          />
+          <MetricCard
+            value="Refunds"
+            description="Improved refund-policy answers across the test set."
+            trend="up"
+            trendLabel="better"
+          />
+          <MetricCard
+            value="Cancellations"
+            description="Regressed on cancellation questions — review before publishing."
+            trend="down"
+            trendLabel="watch"
+          />
+        </section>
+
+        {mustPass.length > 0 && (
+          <section className="border-border bg-surface mb-6 rounded-[var(--radius-lg)] border p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-foreground-subtle text-[10px] tracking-wider uppercase">
+                  Must-Pass Scenarios
+                </p>
+                <p className="text-sm font-medium tracking-tight">
+                  {mustPassPassed} of {mustPass.length} pass
+                </p>
+              </div>
+              <Badge
+                tone={mustPassPassed === mustPass.length ? "success" : "warning"}
+                outline
+              >
+                {mustPassPassed === mustPass.length ? "All pass" : "Needs review"}
+              </Badge>
+            </div>
+            <ul className="flex flex-wrap gap-2">
+              {mustPass.map((s) => {
+                const passed = s.result === "pass";
+                const failed = s.result === "fail";
+                return (
+                  <li
+                    key={s.id}
+                    title={s.prompt}
+                    className={
+                      passed
+                        ? "bg-[var(--status-success-bg)] text-status-success inline-flex max-w-full items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs"
+                        : failed
+                          ? "bg-[var(--status-danger-bg)] text-status-danger inline-flex max-w-full items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs"
+                          : "bg-surface-muted text-foreground-muted inline-flex max-w-full items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs"
+                    }
+                  >
+                    {passed ? (
+                      <Check className="h-3 w-3 shrink-0" />
+                    ) : failed ? (
+                      <span className="text-status-danger inline-block h-3 w-3 shrink-0 leading-3">
+                        ✕
+                      </span>
+                    ) : (
+                      <Minus className="h-3 w-3 shrink-0" />
+                    )}
+                    <span className="truncate">{s.prompt}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
 
         <SideBySideChat
           leftMessages={leftMessages}
