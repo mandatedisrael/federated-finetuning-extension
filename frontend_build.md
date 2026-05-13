@@ -65,8 +65,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 8. `feat(theme): wire dark mode and surface toggle via theme provider`
 
 ### Phase 2 — Primitive components
-- [~] 9. `feat(ui): add button, input, textarea, and label primitives`
-- [ ] 10. `feat(ui): add card, separator, and badge primitives`
+- [x] 9. `feat(ui): add button, input, textarea, and label primitives`
+- [~] 10. `feat(ui): add card, separator, and badge primitives`
 - [ ] 11. `feat(ui): add dialog, sheet, and drawer primitives`
 - [ ] 12. `feat(ui): add tabs, toggle, and tooltip primitives`
 - [ ] 13. `chore(ui): add /_kitchen route to preview all primitives`
