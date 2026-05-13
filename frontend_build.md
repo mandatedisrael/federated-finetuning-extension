@@ -105,8 +105,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 38. `feat(dashboard): add sticky "you're up" banner when current user blocks progress`
 
 ### Phase 7 — Private contribution room
-- [~] 39. `feat(contribute): build 05 private room shell with sidebar and tab switcher`
-- [ ] 40. `feat(contribute): build 05a drag-and-drop upload zone`
+- [x] 39. `feat(contribute): build 05 private room shell with sidebar and tab switcher`
+- [~] 40. `feat(contribute): add drag-and-drop upload zone with file-ready handoff`
 - [ ] 41. `feat(contribute): wire data concierge report under upload zone`
 - [ ] 42. `feat(contribute): add preview table with column confirmation`
 - [ ] 43. `feat(contribute): add encrypt → upload → submitted state machine animation`

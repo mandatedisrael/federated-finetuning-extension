@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { TrustBadge } from "@/components/domain/TrustBadge";
 import { StatusChip } from "@/components/domain/StatusChip";
 import { Badge } from "@/components/ui/Badge";
+import { UploadZone } from "@/components/contribute/UploadZone";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject } from "@/lib/mock/seedDemo";
@@ -101,9 +102,7 @@ export default function ContributePage() {
             </TabsList>
 
             <TabsContent value="upload">
-              <div className="border-border bg-surface-muted/40 text-foreground-muted rounded-[var(--radius-lg)] border border-dashed p-10 text-center text-sm">
-                Upload zone, Data Concierge, and preview ship next.
-              </div>
+              <UploadFlow projectId={project.id} />
             </TabsContent>
 
             <TabsContent value="rewrite">
@@ -115,6 +114,39 @@ export default function ContributePage() {
         </motion.div>
       </div>
     </main>
+  );
+}
+
+function UploadFlow({ projectId: _projectId }: { projectId: string }) {
+  const [files, setFiles] = React.useState<File[]>([]);
+
+  function handleFiles(next: File[]) {
+    setFiles(next);
+  }
+
+  if (files.length === 0) {
+    return <UploadZone onFiles={handleFiles} />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="border-border bg-surface flex items-center gap-3 rounded-[var(--radius-md)] border p-3">
+        <p className="text-foreground-muted flex-1 text-sm">
+          {files.length} {files.length === 1 ? "file" : "files"} ready ·{" "}
+          {files.map((f) => f.name).join(", ")}
+        </p>
+        <button
+          type="button"
+          className="text-foreground-subtle hover:text-foreground text-xs underline-offset-2 hover:underline"
+          onClick={() => setFiles([])}
+        >
+          Start over
+        </button>
+      </div>
+      <div className="border-border bg-surface-muted/40 text-foreground-muted rounded-[var(--radius-lg)] border border-dashed p-10 text-center text-sm">
+        Data Concierge results show up here next.
+      </div>
+    </div>
   );
 }
 
