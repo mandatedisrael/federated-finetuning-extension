@@ -6,6 +6,8 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { TrustBadge } from "@/components/domain/TrustBadge";
 import { ProgressBar, PROJECT_STAGES } from "@/components/domain/ProgressBar";
+import { StatusChip } from "@/components/domain/StatusChip";
+import { AvatarStack } from "@/components/domain/AvatarStack";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { FastForward } from "lucide-react";
@@ -103,6 +105,48 @@ export default function ProjectDashboardPage() {
             )}
           </div>
           <ProgressBar stage={project.stage} />
+        </section>
+
+        <section className="border-border bg-surface mt-6 rounded-[var(--radius-lg)] border">
+          <header className="border-border flex items-center justify-between border-b px-6 py-4">
+            <h2 className="text-sm font-medium tracking-tight">
+              Contributors
+              <span className="text-foreground-subtle ml-2 font-normal">
+                {project.contributors.length}
+              </span>
+            </h2>
+            <AvatarStack
+              size="sm"
+              people={project.contributors.map((c) => ({ id: c.id, name: c.name }))}
+              max={6}
+            />
+          </header>
+          <ul className="divide-border divide-y">
+            {project.contributors.map((c) => {
+              const isYou = user?.id === c.id;
+              return (
+                <li key={c.id} className="flex items-center gap-3 px-6 py-3">
+                  <AvatarStack size="sm" people={[{ id: c.id, name: c.name }]} />
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-2 text-sm">
+                      <span className="font-medium tracking-tight">{c.name}</span>
+                      {isYou && (
+                        <Badge tone="accent" outline className="text-[10px]">
+                          You
+                        </Badge>
+                      )}
+                      {c.role === "owner" && <Badge className="text-[10px]">Owner</Badge>}
+                    </p>
+                    <p className="text-foreground-subtle truncate text-xs">{c.email}</p>
+                  </div>
+                  <span className="text-foreground-subtle text-xs tabular-nums">
+                    {c.exampleCount > 0 ? `${c.exampleCount} examples` : "—"}
+                  </span>
+                  <StatusChip status={c.status} />
+                </li>
+              );
+            })}
+          </ul>
         </section>
       </section>
     </main>
