@@ -54,8 +54,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 
 ### Phase 0 — Scaffold
 - [x] 1. `chore: scaffold next.js 15 app with typescript, tailwind, and app router`
-- [~] 2. `chore: clean tailwind globals, metadata, and remove boilerplate`
-- [ ] 3. `chore: add prettier and editorconfig`
+- [x] 2. `chore: clean tailwind globals, metadata, and remove boilerplate`
+- [~] 3. `chore: add prettier, tailwind plugin, and editorconfig`
 - [ ] 4. `chore: tighten tsconfig strict settings`
 
 ### Phase 1 — Design tokens & typography

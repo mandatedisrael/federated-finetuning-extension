@@ -1,14 +1,12 @@
 export default function Home() {
   return (
-    <main className="flex-1 flex items-center justify-center px-6">
+    <main className="flex flex-1 items-center justify-center px-6">
       <div className="max-w-xl text-center">
-        <p className="text-xs uppercase tracking-[0.18em] text-foreground/50 mb-6">
-          FFE
-        </p>
-        <h1 className="text-4xl sm:text-5xl font-medium tracking-tight">
+        <p className="text-foreground/50 mb-6 text-xs tracking-[0.18em] uppercase">FFE</p>
+        <h1 className="text-4xl font-medium tracking-tight sm:text-5xl">
           Teach a shared AI, privately.
         </h1>
-        <p className="mt-5 text-base text-foreground/60 leading-relaxed">
+        <p className="text-foreground/60 mt-5 text-base leading-relaxed">
           Coming soon — frontend under construction.
         </p>
       </div>
