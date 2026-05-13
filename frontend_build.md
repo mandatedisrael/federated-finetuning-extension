@@ -92,8 +92,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 27. `feat(wizard): scaffold wizard shell and step 1 — goal input`
 - [x] 28. `feat(wizard): add step 2 — invite list with role assignment`
 - [x] 29. `feat(wizard): add step 3 — deadline picker with quick-pick presets`
-- [~] 30. `feat(wizard): add step 4 — refundable deposit with advanced toggle`
-- [ ] 31. `feat(wizard): add shareable invite link generation on completion`
+- [x] 30. `feat(wizard): add step 4 — refundable deposit with advanced toggle`
+- [~] 31. `feat(wizard): persist project, generate invite link, build /new/done`
 
 ### Phase 6 — Project dashboard
 - [ ] 32. `feat(dashboard): build 04 shell with role-aware layout`

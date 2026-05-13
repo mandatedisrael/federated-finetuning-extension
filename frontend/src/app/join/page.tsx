@@ -12,6 +12,14 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { SignInDialog } from "@/components/auth/SignInDialog";
 
 export default function JoinPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <JoinInner />
+    </React.Suspense>
+  );
+}
+
+function JoinInner() {
   const router = useRouter();
   const params = useSearchParams();
   const { status } = useAuth();

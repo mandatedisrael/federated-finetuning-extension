@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/Label";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { getTemplate } from "@/lib/mock/templates";
+import { projectStore } from "@/lib/mock/projectStore";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import type { Role } from "@/lib/mock/types";
 
 interface Invitee {
@@ -68,10 +70,20 @@ function isValidIdentifier(v: string) {
 }
 
 export default function SetupWizardPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <SetupWizardInner />
+    </React.Suspense>
+  );
+}
+
+function SetupWizardInner() {
   const router = useRouter();
   const params = useSearchParams();
+  const { user } = useAuth();
   const templateId = params.get("template") ?? "customer-support";
   const template = getTemplate(templateId);
+  const [creating, setCreating] = React.useState(false);
 
   const [state, setState] = React.useState<WizardState>({
     goal: template?.goal ?? "",
@@ -332,11 +344,32 @@ export default function SetupWizardPage() {
     },
   ];
 
+  async function handleFinish() {
+    if (!user) {
+      router.push("/");
+      return;
+    }
+    setCreating(true);
+    await new Promise((r) => setTimeout(r, 350));
+    const project = projectStore.create({
+      templateId,
+      name: template?.name ?? "Untitled project",
+      goal: state.goal.trim(),
+      ownerId: user.id,
+      ownerName: user.displayName,
+      ownerEmail: user.email,
+      invitees: validInvitees.map((i) => ({ identifier: i.identifier.trim(), role: i.role })),
+      deadline: state.deadline,
+      stakeUsd: state.stakeUsd,
+    });
+    router.push(`/new/done?id=${project.id}`);
+  }
+
   function handleNext() {
     if (index < steps.length - 1) {
       setIndex((i) => i + 1);
     } else {
-      router.push("/p/p_demo");
+      void handleFinish();
     }
   }
 
@@ -347,6 +380,7 @@ export default function SetupWizardPage() {
       onPrev={() => setIndex((i) => Math.max(0, i - 1))}
       onNext={handleNext}
       onCancel={() => router.push("/new")}
+      busy={creating}
     />
   );
 }
