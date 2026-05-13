@@ -330,7 +330,12 @@ export default function ProjectDashboardPage() {
                   (1000 * 60 * 60 * 24),
               ),
             );
-            const items = [
+            const items: Array<{
+              ok: boolean;
+              warn: boolean;
+              label: string;
+              href?: string;
+            }> = [
               {
                 ok: uploaded === total,
                 warn: uploaded > 0 && uploaded < total,
@@ -340,6 +345,7 @@ export default function ProjectDashboardPage() {
                 ok: mustPassSet,
                 warn: false,
                 label: mustPassSet ? "Must-Pass Scenarios set" : "Must-Pass Scenarios not yet set",
+                href: isOwner ? `/p/${project.id}/scenarios` : undefined,
               },
               {
                 ok: daysLeft > 1,
@@ -356,19 +362,29 @@ export default function ProjectDashboardPage() {
               <ul className="border-border mt-6 grid gap-2 border-t pt-5 text-sm sm:grid-cols-3">
                 {items.map((it, i) => {
                   const Icon = it.ok ? Check : it.warn ? AlertCircle : Circle;
-                  return (
-                    <li
-                      key={i}
-                      className={
-                        it.ok
-                          ? "text-foreground flex items-center gap-2"
-                          : it.warn
-                            ? "text-status-warning flex items-center gap-2"
-                            : "text-foreground-subtle flex items-center gap-2"
-                      }
-                    >
+                  const toneClass = it.ok
+                    ? "text-foreground"
+                    : it.warn
+                      ? "text-status-warning"
+                      : "text-foreground-subtle";
+                  const content = (
+                    <>
                       <Icon className="h-4 w-4 shrink-0" />
                       <span className="text-xs tracking-tight">{it.label}</span>
+                    </>
+                  );
+                  return (
+                    <li key={i} className={`flex items-center gap-2 ${toneClass}`}>
+                      {it.href ? (
+                        <Link
+                          href={it.href}
+                          className="hover:text-foreground inline-flex items-center gap-2 underline-offset-4 hover:underline"
+                        >
+                          {content}
+                        </Link>
+                      ) : (
+                        content
+                      )}
                     </li>
                   );
                 })}

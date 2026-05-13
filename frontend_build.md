@@ -120,8 +120,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 49. `feat(rejection): add "switch to rewrite studio" inline fix`
 
 ### Phase 9 — Must-Pass Scenarios
-- [ ] 50. `feat(must-pass): build 07 owner-only scenarios screen`
-- [ ] 51. `feat(must-pass): add minimum-3 validation and pass/fail chips`
+- [x] 50. `feat(must-pass): build 07 owner-only scenarios screen`
+- [x] 51. `feat(must-pass): add minimum-3 validation and pass/fail chips`
 
 ### Phase 10 — Result Playground
 - [ ] 52. `feat(result): build 08 side-by-side chat panel with shared input`
