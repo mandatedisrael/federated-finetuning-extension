@@ -84,11 +84,11 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 21. `feat(auth): add mock auth provider matching privy embedded-wallet shape`
 - [x] 22. `feat(landing): build 01 landing page with headline and dual CTAs`
 - [x] 23. `feat(auth): add sign-in dialog and AuthGate for landing CTAs`
-- [~] 24. `feat(join): add /join invite redemption page`
+- [x] 24. `feat(join): add /join invite redemption page`
 
 ### Phase 5 — Owner: project creation
-- [ ] 25. `feat(templates): build 02 template picker grid`
-- [ ] 26. `feat(templates): seed customer support, code review, medical notes templates`
+- [~] 25. `feat(templates): seed template fixtures and types`
+- [ ] 26. `feat(templates): build 02 template picker grid`
 - [ ] 27. `feat(wizard): build 03 step 1 — goal input with typeform transitions`
 - [ ] 28. `feat(wizard): build 03 step 2 — invite list with role assignment`
 - [ ] 29. `feat(wizard): build 03 step 3 — deadline picker`
