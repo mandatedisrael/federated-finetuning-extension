@@ -115,9 +115,9 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 46. `feat(contribute): wire rewrite studio with encrypt-and-submit-all`
 
 ### Phase 8 — Rejection handling
-- [ ] 47. `feat(rejection): build 06 plain-language rejection screen`
-- [ ] 48. `feat(rejection): add deposit-held messaging and resubmit path`
-- [ ] 49. `feat(rejection): add "switch to rewrite studio" inline fix`
+- [x] 47. `feat(rejection): build 06 plain-language rejection screen`
+- [x] 48. `feat(rejection): add deposit-held messaging and resubmit path`
+- [x] 49. `feat(rejection): add "switch to rewrite studio" inline fix`
 
 ### Phase 9 — Must-Pass Scenarios
 - [ ] 50. `feat(must-pass): build 07 owner-only scenarios screen`
