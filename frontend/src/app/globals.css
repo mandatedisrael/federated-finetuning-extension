@@ -181,3 +181,87 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
+
+/* ============================================================
+   Overlay & panel transitions
+   Triggered by Radix data-state attributes. Kept here so any
+   overlay primitive (dialog, sheet, drawer) shares the motion.
+   ============================================================ */
+
+@keyframes ffe-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ffe-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes ffe-scale-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.96);
+  }
+}
+@keyframes ffe-scale-out {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.96);
+  }
+}
+@keyframes ffe-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes ffe-slide-out-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes ffe-slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@keyframes ffe-slide-out-left {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+[data-state="open"][data-ffe-overlay] {
+  animation: ffe-fade-in var(--duration-base) var(--ease-out-expo);
+}
+[data-state="closed"][data-ffe-overlay] {
+  animation: ffe-fade-out var(--duration-fast) var(--ease-out-expo);
+}
+[data-state="open"][data-ffe-dialog] {
+  animation: ffe-scale-in var(--duration-base) var(--ease-out-expo);
+}
+[data-state="closed"][data-ffe-dialog] {
+  animation: ffe-scale-out var(--duration-fast) var(--ease-out-expo);
+}
+[data-state="open"][data-ffe-sheet="right"] {
+  animation: ffe-slide-in-right var(--duration-base) var(--ease-out-expo);
+}
+[data-state="closed"][data-ffe-sheet="right"] {
+  animation: ffe-slide-out-right var(--duration-fast) var(--ease-out-expo);
+}
+[data-state="open"][data-ffe-sheet="left"] {
+  animation: ffe-slide-in-left var(--duration-base) var(--ease-out-expo);
+}
+[data-state="closed"][data-ffe-sheet="left"] {
+  animation: ffe-slide-out-left var(--duration-fast) var(--ease-out-expo);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

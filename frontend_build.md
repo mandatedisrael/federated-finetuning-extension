@@ -66,8 +66,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 
 ### Phase 2 — Primitive components
 - [x] 9. `feat(ui): add button, input, textarea, and label primitives`
-- [~] 10. `feat(ui): add card, separator, and badge primitives`
-- [ ] 11. `feat(ui): add dialog, sheet, and drawer primitives`
+- [x] 10. `feat(ui): add card, separator, and badge primitives`
+- [~] 11. `feat(ui): add dialog, sheet, and drawer primitives with motion`
 - [ ] 12. `feat(ui): add tabs, toggle, and tooltip primitives`
 - [ ] 13. `chore(ui): add /_kitchen route to preview all primitives`
 
