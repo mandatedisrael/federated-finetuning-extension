@@ -133,9 +133,9 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 58. `feat(result): add co-owner avatar row`
 
 ### Phase 11 — Publish & versions
-- [ ] 59. `feat(publish): build 09 publish-or-rerun screen`
-- [ ] 60. `feat(publish): gate publish on must-pass with explicit override`
-- [ ] 61. `feat(publish): add personal-receipt success state per contributor`
+- [x] 59. `feat(publish): build 09 publish-or-rerun screen`
+- [x] 60. `feat(publish): gate publish on must-pass with explicit override`
+- [x] 61. `feat(publish): add personal-receipt success state per contributor`
 - [ ] 62. `feat(versions): build 10 vertical version timeline`
 - [ ] 63. `feat(versions): add expandable row with try / rollback actions`
 

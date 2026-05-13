@@ -50,8 +50,12 @@ export interface ProjectVersion {
   summary: string;
   publishedAt: string;
   publishedBy: string;
+  publishedById: string;
   mustPassPassed: number;
   mustPassTotal: number;
+  contributorIds: string[];
+  voteSummary?: { left: number; right: number; neither: number };
+  overridden?: boolean;
 }
 
 export interface Project {
