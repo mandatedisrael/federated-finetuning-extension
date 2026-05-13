@@ -75,8 +75,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 14. `feat(components): add trust badge with encryption pulse animation`
 - [x] 15. `feat(components): add four-stage progress bar with liquid fill`
 - [x] 16. `feat(components): add status chip with fixed color palette`
-- [~] 17. `feat(components): add co-owner avatar stack with overflow`
-- [ ] 18. `feat(components): add data concierge finding row`
+- [x] 17. `feat(components): add co-owner avatar stack with overflow`
+- [~] 18. `feat(components): add data concierge finding row`
 - [ ] 19. `feat(components): add plain-english metric card`
 - [ ] 20. `feat(components): add side-by-side chat panel shell`
 
