@@ -53,10 +53,10 @@ Designed with a clean data layer so the swap is isolated.
 Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 
 ### Phase 0 — Scaffold
-- [ ] 1. `chore: scaffold next.js 15 app with typescript and app router`
-- [ ] 2. `chore: configure tailwind v4 and base globals`
-- [ ] 3. `chore: add eslint, prettier, and editorconfig`
-- [ ] 4. `chore: add path aliases and tsconfig strict settings`
+- [x] 1. `chore: scaffold next.js 15 app with typescript, tailwind, and app router`
+- [~] 2. `chore: clean tailwind globals, metadata, and remove boilerplate`
+- [ ] 3. `chore: add prettier and editorconfig`
+- [ ] 4. `chore: tighten tsconfig strict settings`
 
 ### Phase 1 — Design tokens & typography
 - [ ] 5. `feat(theme): add geist sans, geist mono, and instrument serif via next/font`
