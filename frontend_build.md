@@ -77,8 +77,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 16. `feat(components): add status chip with fixed color palette`
 - [x] 17. `feat(components): add co-owner avatar stack with overflow`
 - [x] 18. `feat(components): add data concierge finding row`
-- [~] 19. `feat(components): add plain-english metric card`
-- [ ] 20. `feat(components): add side-by-side chat panel shell`
+- [x] 19. `feat(components): add plain-english metric card`
+- [~] 20. `feat(components): add side-by-side chat panel shell`
 
 ### Phase 4 — Auth & landing
 - [ ] 21. `feat(auth): add privy provider and embedded wallet shell`
