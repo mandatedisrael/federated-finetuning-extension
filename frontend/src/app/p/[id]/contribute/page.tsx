@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import { ArrowLeft, Calendar, ShieldCheck, Upload, Pencil } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
@@ -23,8 +23,10 @@ import type { Project } from "@/lib/mock/types";
 
 export default function ContributePage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [project, setProject] = React.useState<Project | null>(null);
+  const initialTab = searchParams?.get("tab") === "rewrite" ? "rewrite" : "upload";
 
   React.useEffect(() => {
     if (!params?.id) return;
@@ -95,7 +97,7 @@ export default function ContributePage() {
           transition={{ duration: 0.28 }}
           className="min-w-0 flex-1"
         >
-          <Tabs defaultValue="upload">
+          <Tabs defaultValue={initialTab}>
             <TabsList>
               <TabsTrigger value="upload">
                 <Upload className="h-3.5 w-3.5" />

@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion } from "motion/react";
-import { ArrowLeft, AlertCircle, ShieldCheck, RefreshCcw } from "lucide-react";
+import { ArrowLeft, AlertCircle, ShieldCheck, RefreshCcw, Pencil, ArrowRight } from "lucide-react";
 import { TrustBadge } from "@/components/domain/TrustBadge";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -74,7 +74,7 @@ export default function RejectionPage() {
             What needs attention
           </div>
           {report.reasons.map((reason) => (
-            <ReasonRow key={reason.id} reason={reason} />
+            <ReasonRow key={reason.id} reason={reason} projectId={project.id} />
           ))}
         </div>
 
@@ -123,7 +123,7 @@ function DepositPanel({ project }: { project: Project }) {
   );
 }
 
-function ReasonRow({ reason }: { reason: RejectionReason }) {
+function ReasonRow({ reason, projectId }: { reason: RejectionReason; projectId: string }) {
   return (
     <div className="border-border bg-surface rounded-[var(--radius-lg)] border p-5">
       <div className="flex items-start justify-between gap-3">
@@ -135,6 +135,22 @@ function ReasonRow({ reason }: { reason: RejectionReason }) {
           {reason.affectedCount}
         </Badge>
       </div>
+
+      {reason.fix === "rewrite" && (
+        <div className="border-border/60 mt-4 flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-foreground-subtle text-xs leading-relaxed">
+            Skip another conversion — write these {reason.affectedCount} examples by hand in the
+            Rewrite Studio. Usually faster than re-uploading.
+          </p>
+          <Button asChild variant="secondary" size="sm" className="shrink-0">
+            <Link href={`/p/${projectId}/contribute?tab=rewrite`}>
+              <Pencil className="h-3.5 w-3.5" />
+              Switch to Rewrite Studio
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
