@@ -83,8 +83,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 ### Phase 4 — Auth & landing
 - [x] 21. `feat(auth): add mock auth provider matching privy embedded-wallet shape`
 - [x] 22. `feat(landing): build 01 landing page with headline and dual CTAs`
-- [~] 23. `feat(auth): add sign-in dialog and AuthGate for landing CTAs`
-- [ ] 24. `feat(landing): add invite link redemption route`
+- [x] 23. `feat(auth): add sign-in dialog and AuthGate for landing CTAs`
+- [~] 24. `feat(join): add /join invite redemption page`
 
 ### Phase 5 — Owner: project creation
 - [ ] 25. `feat(templates): build 02 template picker grid`
