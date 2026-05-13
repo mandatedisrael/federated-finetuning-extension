@@ -10,6 +10,7 @@ import { TrustBadge } from "@/components/domain/TrustBadge";
 import { StatusChip } from "@/components/domain/StatusChip";
 import { Badge } from "@/components/ui/Badge";
 import { UploadZone } from "@/components/contribute/UploadZone";
+import { RewriteStudio } from "@/components/contribute/RewriteStudio";
 import { DataConciergeRow } from "@/components/domain/DataConciergeRow";
 import { scanFiles, type ConciergeReport } from "@/lib/mock/dataConcierge";
 import { Loader2, Lock } from "lucide-react";
@@ -111,9 +112,7 @@ export default function ContributePage() {
             </TabsContent>
 
             <TabsContent value="rewrite">
-              <div className="border-border bg-surface-muted/40 text-foreground-muted rounded-[var(--radius-lg)] border border-dashed p-10 text-center text-sm">
-                Rewrite Studio cards ship next.
-              </div>
+              <RewriteStudio projectId={project.id} />
             </TabsContent>
           </Tabs>
         </motion.div>
