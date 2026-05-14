@@ -59,7 +59,6 @@ function ProjectSettingsButton({
 }) {
   const [goal, setGoal] = React.useState(project.goal);
   const [deadline, setDeadline] = React.useState(project.deadline);
-  const [stake, setStake] = React.useState(project.stakeUsd);
   const [copied, setCopied] = React.useState(false);
   const [origin] = React.useState(() =>
     typeof window === "undefined" ? "" : window.location.origin,
@@ -69,13 +68,11 @@ function ProjectSettingsButton({
     const updated = projectStore.update(project.id, {
       goal: goal.trim(),
       deadline,
-      stakeUsd: stake,
     });
     if (updated) onUpdate(updated);
     await updateProject(project.id, {
       goal: goal.trim(),
       deadline,
-      stakeUsd: stake,
     }).catch((err) => console.warn("Could not persist project settings.", err));
   }
 
@@ -116,15 +113,11 @@ function ProjectSettingsButton({
               onChange={(e) => setDeadline(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="set-stake">Deposit (USD)</Label>
-            <Input
-              id="set-stake"
-              type="number"
-              min={0}
-              value={stake}
-              onChange={(e) => setStake(Math.max(0, Number(e.target.value) || 0))}
-            />
+          <div className="border-border bg-surface-muted/40 rounded-[var(--radius-md)] border border-dashed p-3">
+            <p className="text-foreground text-sm font-medium tracking-tight">Deposits</p>
+            <p className="text-foreground-muted mt-1 text-xs leading-relaxed">
+              Planned for a later release. No contributor deposit is enforced right now.
+            </p>
           </div>
 
           <div className="border-border space-y-2 border-t pt-4">

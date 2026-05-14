@@ -169,12 +169,12 @@ export default function KitchenPage() {
                 <DialogHeader>
                   <DialogTitle>Some examples need attention</DialogTitle>
                   <DialogDescription>
-                    Your deposit is held — fully refundable if you resubmit by the deadline.
+                    Deposits are planned for later. For now, contributors can just fix and resubmit.
                   </DialogDescription>
                 </DialogHeader>
                 <p className="text-foreground-muted text-sm">
-                  Format didn&apos;t match expected Q&amp;A pairs. We&apos;ll keep your deposit safe
-                  while you fix it.
+                  Format didn&apos;t match expected Q&amp;A pairs. Fix the export and resubmit when
+                  you&apos;re ready.
                 </p>
                 <DialogFooter>
                   <DialogClose asChild>

@@ -167,7 +167,7 @@ function ProjectCreatedInner() {
           className="mt-10 flex items-center justify-between"
         >
           <p className="text-foreground-subtle text-xs">
-            Deadline: {project.deadline} · Deposit: ${project.stakeUsd} per contributor
+            Deadline: {project.deadline}
             {project.chainSession ? ` · FFE session #${project.chainSession.sessionId}` : ""}
           </p>
           <Button asChild>

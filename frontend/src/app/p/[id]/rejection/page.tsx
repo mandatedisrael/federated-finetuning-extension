@@ -20,7 +20,17 @@ export default function RejectionPage() {
 
   React.useEffect(() => {
     if (!params?.id) return;
-    setProject(projectStore.get(params.id) ?? ensureDemoProject(params.id));
+    let cancelled = false;
+    async function loadProject() {
+      await Promise.resolve();
+      if (!cancelled) {
+        setProject(projectStore.get(params.id) ?? ensureDemoProject(params.id));
+      }
+    }
+    void loadProject();
+    return () => {
+      cancelled = true;
+    };
   }, [params?.id]);
 
   if (!project) {
@@ -50,7 +60,7 @@ export default function RejectionPage() {
         transition={{ duration: 0.32 }}
         className="space-y-6"
       >
-        <div className="border-status-warning/30 bg-[var(--status-warning-bg)] flex items-start gap-3 rounded-[var(--radius-lg)] border p-5">
+        <div className="border-status-warning/30 flex items-start gap-3 rounded-[var(--radius-lg)] border bg-[var(--status-warning-bg)] p-5">
           <span className="bg-status-warning/15 text-status-warning mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
             <AlertCircle className="h-4 w-4" />
           </span>
@@ -90,7 +100,7 @@ function DepositPanel({ project }: { project: Project }) {
     day: "numeric",
   });
   return (
-    <div className="border-trust/20 bg-[var(--trust-bg)]/40 rounded-[var(--radius-lg)] border p-5">
+    <div className="border-trust/20 rounded-[var(--radius-lg)] border bg-[var(--trust-bg)]/40 p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="bg-trust/10 text-trust mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
@@ -99,16 +109,14 @@ function DepositPanel({ project }: { project: Project }) {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-foreground text-sm font-medium tracking-tight">
-                Your ${project.stakeUsd} deposit is held — not slashed.
+                Deposits are not active in this release.
               </h3>
-              <Badge tone="trust" outline>
-                Refundable
-              </Badge>
+              <Badge outline>Planned</Badge>
             </div>
             <p className="text-foreground-muted mt-1 text-sm leading-relaxed">
-              First rejections never count against you. Resubmit a fixed version by{" "}
-              <span className="text-foreground font-medium">{deadline}</span> and your deposit
-              returns in full when training completes.
+              First rejections still do not count against you. Resubmit a fixed version by{" "}
+              <span className="text-foreground font-medium">{deadline}</span> and we&apos;ll keep
+              the flow moving without any escrow step.
             </p>
           </div>
         </div>

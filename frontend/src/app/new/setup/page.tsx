@@ -28,10 +28,9 @@ interface WizardState {
   invitees: Invitee[];
   deadline: string; // YYYY-MM-DD
   stakeUsd: number;
-  showAdvancedStake: boolean;
 }
 
-const DEFAULT_STAKE_USD = 5;
+const DEFAULT_STAKE_USD = 0;
 
 const DEFAULT_DAYS_OUT = 7;
 
@@ -93,7 +92,6 @@ function SetupWizardInner() {
     invitees: [newInvitee()],
     deadline: isoNDaysFromNow(DEFAULT_DAYS_OUT),
     stakeUsd: DEFAULT_STAKE_USD,
-    showAdvancedStake: false,
   });
   const [index, setIndex] = React.useState(0);
 
@@ -282,65 +280,35 @@ function SetupWizardInner() {
     },
     {
       id: "stake",
-      label: "Deposit",
-      isValid: () => state.stakeUsd >= 0,
+      label: "Later",
+      isValid: () => true,
       render: () => (
         <div className="space-y-6">
           <div>
             <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">
-              A small refundable deposit.
+              Deposits are planned for later.
             </h1>
             <p className="text-foreground-muted mt-3 text-base leading-relaxed">
-              Each contributor puts down a deposit when they submit. It&apos;s fully refunded as
-              soon as their contribution passes the data-quality check. This keeps spam out and
-              treats first-time mistakes kindly.
+              We like the idea of a refundable deposit for spam resistance, but it is not active in
+              this release. Contributors can join and submit without funding anything extra.
             </p>
           </div>
 
-          <div className="border-border bg-surface rounded-[var(--radius-lg)] border p-5">
-            <div className="flex items-baseline gap-2">
-              <span className="font-serif text-4xl tracking-tight">${state.stakeUsd}</span>
-              <span className="text-foreground-muted text-sm">per contributor · refundable</span>
-            </div>
-            <p className="text-foreground-subtle mt-2 text-xs">
-              Held in the project escrow. Returned automatically on a passing contribution.
-            </p>
-
-            <button
-              type="button"
-              className="text-accent mt-4 inline-flex items-center text-xs underline-offset-4 hover:underline"
-              onClick={() => setState((s) => ({ ...s, showAdvancedStake: !s.showAdvancedStake }))}
-            >
-              {state.showAdvancedStake ? "Hide advanced" : "Advanced — change amount"}
-            </button>
-
-            {state.showAdvancedStake && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                transition={{ duration: 0.2 }}
-                className="mt-4 space-y-2 overflow-hidden"
-              >
-                <Label htmlFor="stake">Deposit amount (USD)</Label>
-                <Input
-                  id="stake"
-                  type="number"
-                  min={0}
-                  max={500}
-                  value={state.stakeUsd}
-                  onChange={(e) =>
-                    setState((s) => ({
-                      ...s,
-                      stakeUsd: Math.max(0, Number(e.target.value) || 0),
-                    }))
-                  }
-                />
-                <p className="text-foreground-subtle text-xs">
-                  Most projects sit at $5–$25. Higher amounts deter spam but raise the bar for
-                  participation.
+          <div className="border-border bg-surface-muted/40 rounded-[var(--radius-lg)] border border-dashed p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-foreground text-sm font-medium tracking-tight">
+                  Not enforced right now
                 </p>
-              </motion.div>
-            )}
+                <p className="text-foreground-muted mt-1 text-sm leading-relaxed">
+                  We&apos;ll bring this back when escrow, refunds, and contributor messaging are
+                  ready end to end.
+                </p>
+              </div>
+              <Badge tone="neutral" outline>
+                Planned
+              </Badge>
+            </div>
           </div>
 
           {creationError && (

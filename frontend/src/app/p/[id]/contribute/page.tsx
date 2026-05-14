@@ -98,9 +98,10 @@ export default function ContributePage() {
             <Row label="Status">
               <StatusChip status={me?.status ?? "not-started"} />
             </Row>
-            <Row label="Deposit">
-              <Badge tone="trust" outline>
-                <ShieldCheck className="h-3 w-3" />${project.stakeUsd} held
+            <Row label="Deposits">
+              <Badge outline>
+                <ShieldCheck className="h-3 w-3" />
+                Planned later
               </Badge>
             </Row>
             <Row label="Deadline">
