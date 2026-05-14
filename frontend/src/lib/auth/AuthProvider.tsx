@@ -1,115 +1,127 @@
 "use client";
 
 import * as React from "react";
+import {
+  PrivyProvider as PrivyProviderRaw,
+  usePrivy,
+  useLogout,
+  type User as PrivyUser,
+} from "@privy-io/react-auth";
+import { OG_CHAIN } from "@/lib/og/chain";
 
-/**
- * Mock auth provider. Designed to match the surface area of Privy /
- * Dynamic embedded wallets so the swap is one file later.
- *
- * Shape kept intentionally small:
- *   - signed-in user (email + display name + wallet address)
- *   - signInWithEmail(email)   → sends magic link (mocked: instant)
- *   - signInWithGoogle()       → OAuth (mocked: instant)
- *   - signOut()
- *
- * Persists to localStorage for now. No real crypto.
- */
+const zeroGChain = {
+  id: OG_CHAIN.id,
+  name: OG_CHAIN.name,
+  nativeCurrency: { name: OG_CHAIN.symbol, symbol: OG_CHAIN.symbol, decimals: OG_CHAIN.decimals },
+  rpcUrls: {
+    default: { http: [OG_CHAIN.rpcUrl] },
+    public: { http: [OG_CHAIN.rpcUrl] },
+  },
+  blockExplorers: { default: { name: "ChainScan", url: OG_CHAIN.explorer } },
+} as const;
+
 export interface AuthUser {
   id: string;
   email: string;
   displayName: string;
   walletAddress: string;
-  provider: "email" | "google";
+  provider: "email" | "google" | "other";
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   status: "loading" | "authenticated" | "anonymous";
-  signInWithEmail: (email: string) => Promise<AuthUser>;
-  signInWithGoogle: () => Promise<AuthUser>;
   signOut: () => void;
 }
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
-const STORAGE_KEY = "ffe:auth:user";
 
-function fakeWallet(seed: string) {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 33 + seed.charCodeAt(i)) >>> 0;
-  const hex = h.toString(16).padStart(8, "0").repeat(5).slice(0, 40);
-  return `0x${hex}`;
+function pickProvider(u: PrivyUser): AuthUser["provider"] {
+  if (u.google) return "google";
+  if (u.email) return "email";
+  return "other";
 }
 
-function userFromEmail(email: string): AuthUser {
+function pickEmail(u: PrivyUser): string {
+  return u.email?.address ?? u.google?.email ?? "";
+}
+
+function pickDisplayName(u: PrivyUser, email: string): string {
+  if (u.google?.name) return u.google.name;
   const local = email.split("@")[0] ?? "user";
-  const display = local.replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return local.replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function pickWallet(u: PrivyUser): string {
+  return u.wallet?.address ?? "";
+}
+
+function adapt(u: PrivyUser): AuthUser {
+  const email = pickEmail(u);
   return {
-    id: `u_${fakeWallet(email).slice(2, 10)}`,
+    id: u.id,
     email,
-    displayName: display,
-    walletAddress: fakeWallet(email),
-    provider: "email",
+    displayName: pickDisplayName(u, email),
+    walletAddress: pickWallet(u),
+    provider: pickProvider(u),
   };
 }
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<AuthUser | null>(null);
-  const [status, setStatus] = React.useState<AuthContextValue["status"]>("loading");
+function AuthBridge({ children }: { children: React.ReactNode }) {
+  const { ready, authenticated, user: privyUser } = usePrivy();
+  const { logout } = useLogout();
 
-  React.useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as AuthUser;
-        setUser(parsed);
-        setStatus("authenticated");
-        return;
-      }
-    } catch {
-      /* ignore */
-    }
-    setStatus("anonymous");
-  }, []);
-
-  const persist = React.useCallback((next: AuthUser) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    setUser(next);
-    setStatus("authenticated");
-  }, []);
-
-  const signInWithEmail = React.useCallback(
-    async (email: string) => {
-      await new Promise((r) => setTimeout(r, 350));
-      const u = userFromEmail(email);
-      persist(u);
-      return u;
-    },
-    [persist],
-  );
-
-  const signInWithGoogle = React.useCallback(async () => {
-    await new Promise((r) => setTimeout(r, 350));
-    const u: AuthUser = {
-      ...userFromEmail("you@gmail.com"),
-      provider: "google",
-      displayName: "You",
+  const value = React.useMemo<AuthContextValue>(() => {
+    const status: AuthContextValue["status"] = !ready
+      ? "loading"
+      : authenticated && privyUser
+        ? "authenticated"
+        : "anonymous";
+    return {
+      user: authenticated && privyUser ? adapt(privyUser) : null,
+      status,
+      signOut: () => {
+        void logout();
+      },
     };
-    persist(u);
-    return u;
-  }, [persist]);
-
-  const signOut = React.useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    setUser(null);
-    setStatus("anonymous");
-  }, []);
-
-  const value = React.useMemo<AuthContextValue>(
-    () => ({ user, status, signInWithEmail, signInWithGoogle, signOut }),
-    [user, status, signInWithEmail, signInWithGoogle, signOut],
-  );
+  }, [ready, authenticated, privyUser, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+
+  if (!appId) {
+    if (typeof window !== "undefined") {
+      console.warn(
+        "[auth] NEXT_PUBLIC_PRIVY_APP_ID is not set — sign-in will not work. Add it to .env.local.",
+      );
+    }
+    const value: AuthContextValue = {
+      user: null,
+      status: "anonymous",
+      signOut: () => {},
+    };
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  }
+
+  return (
+    <PrivyProviderRaw
+      appId={appId}
+      config={{
+        loginMethods: ["email", "google", "wallet"],
+        appearance: { theme: "light", walletChainType: "ethereum-only" },
+        embeddedWallets: {
+          ethereum: { createOnLogin: "users-without-wallets" },
+        },
+        defaultChain: zeroGChain,
+        supportedChains: [zeroGChain],
+      }}
+    >
+      <AuthBridge>{children}</AuthBridge>
+    </PrivyProviderRaw>
+  );
 }
 
 export function useAuth() {
