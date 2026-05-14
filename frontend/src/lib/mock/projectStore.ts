@@ -116,6 +116,18 @@ export const projectStore = {
     return project;
   },
 
+  put(project: Project): Project {
+    const all = load();
+    const idx = all.findIndex((p) => p.id === project.id);
+    if (idx === -1) {
+      all.push(project);
+    } else {
+      all[idx] = project;
+    }
+    save(all);
+    return project;
+  },
+
   update(id: string, patch: Partial<Project>): Project | undefined {
     const all = load();
     const idx = all.findIndex((p) => p.id === id);

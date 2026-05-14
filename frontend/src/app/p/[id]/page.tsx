@@ -44,6 +44,7 @@ import { usePageTitle } from "@/lib/a11y/usePageTitle";
 import { createFfeProjectSession, getFfeSessionStatus } from "@/lib/ffe/client";
 import { createBrowserFfeKeyPair } from "@/lib/ffe/keys";
 import { projectStore } from "@/lib/mock/projectStore";
+import { loadProject, updateProject } from "@/lib/projects/client";
 import { ensureDemoProject, seedSampleProgress } from "@/lib/mock/seedDemo";
 import { getTemplate } from "@/lib/mock/templates";
 import type { FfeSessionStatusResult } from "@/lib/ffe/types";
@@ -60,17 +61,22 @@ function ProjectSettingsButton({
   const [deadline, setDeadline] = React.useState(project.deadline);
   const [stake, setStake] = React.useState(project.stakeUsd);
   const [copied, setCopied] = React.useState(false);
-  const [origin, setOrigin] = React.useState("");
+  const [origin] = React.useState(() =>
+    typeof window === "undefined" ? "" : window.location.origin,
+  );
 
-  React.useEffect(() => setOrigin(window.location.origin), []);
-
-  function save() {
+  async function save() {
     const updated = projectStore.update(project.id, {
       goal: goal.trim(),
       deadline,
       stakeUsd: stake,
     });
     if (updated) onUpdate(updated);
+    await updateProject(project.id, {
+      goal: goal.trim(),
+      deadline,
+      stakeUsd: stake,
+    }).catch((err) => console.warn("Could not persist project settings.", err));
   }
 
   async function copyLink() {
@@ -161,33 +167,48 @@ export default function ProjectDashboardPage() {
   React.useEffect(() => {
     if (!params?.id) return;
     const id = params.id;
-    const p = projectStore.get(id) ?? ensureDemoProject(id);
-    // demo polish: seed contributor statuses the first time
-    if (
-      p.ownerId === "u_demo_owner" &&
-      !p.chainSession &&
-      p.contributors.every((c) => c.status === "not-started")
-    ) {
-      seedSampleProgress(p.id);
-    }
-    const current = projectStore.get(id) ?? null;
-    setProject(current);
-    setSessionStatus(null);
-
-    if (!current?.chainSession) return;
     let cancelled = false;
-    getFfeSessionStatus(current.chainSession.sessionId)
-      .then((status) => {
-        if (cancelled) return;
-        setSessionStatus(status);
-        const latest = projectStore.get(id);
-        if (!latest || latest.stage === "ready") return;
-        const updated = projectStore.update(id, { stage: status.stage });
-        if (updated) setProject(updated);
-      })
-      .catch(() => {
-        if (!cancelled) setSessionStatus(null);
-      });
+    async function loadCurrentProject() {
+      await Promise.resolve();
+      const p = projectStore.get(id) ?? ensureDemoProject(id);
+      // demo polish: seed contributor statuses the first time
+      if (
+        p.ownerId === "u_demo_owner" &&
+        !p.chainSession &&
+        p.contributors.every((c) => c.status === "not-started")
+      ) {
+        seedSampleProgress(p.id);
+      }
+      const current = projectStore.get(id) ?? null;
+      if (cancelled) return;
+      setProject(current);
+      setSessionStatus(null);
+
+      loadProject(id)
+        .then((remote) => {
+          if (!cancelled) setProject(remote);
+        })
+        .catch(() => undefined);
+
+      if (current?.chainSession) {
+        getFfeSessionStatus(current.chainSession.sessionId)
+          .then((status) => {
+            if (cancelled) return;
+            setSessionStatus(status);
+            const latest = projectStore.get(id);
+            if (!latest || latest.stage === "ready") return;
+            const updated = projectStore.update(id, { stage: status.stage });
+            if (updated) {
+              setProject(updated);
+              void updateProject(id, { stage: status.stage }).catch(() => undefined);
+            }
+          })
+          .catch(() => {
+            if (!cancelled) setSessionStatus(null);
+          });
+      }
+    }
+    void loadCurrentProject();
     return () => {
       cancelled = true;
     };
@@ -291,6 +312,11 @@ export default function ProjectDashboardPage() {
         stage: "waiting",
       });
       if (updated) setProject(updated);
+      void updateProject(project.id, {
+        contributors,
+        chainSession,
+        stage: "waiting",
+      }).catch((err) => console.warn("Could not persist FFE session.", err));
     } catch (err) {
       setStartError(err instanceof Error ? err.message : "Could not start the FFE session.");
     } finally {
@@ -553,7 +579,8 @@ export default function ProjectDashboardPage() {
             const daysLeft = Math.max(
               0,
               Math.round(
-                (new Date(project.deadline + "T23:59:59").getTime() - Date.now()) /
+                (new Date(project.deadline + "T23:59:59").getTime() -
+                  new Date(project.createdAt).getTime()) /
                   (1000 * 60 * 60 * 24),
               ),
             );

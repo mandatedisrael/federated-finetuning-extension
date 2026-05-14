@@ -14,6 +14,7 @@ import { getTemplate } from "@/lib/mock/templates";
 import { projectStore } from "@/lib/mock/projectStore";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { sendProjectInvites } from "@/lib/notify/inviteDelivery";
+import { saveProject, updateProject } from "@/lib/projects/client";
 import type { Role } from "@/lib/mock/types";
 
 interface Invitee {
@@ -378,6 +379,10 @@ function SetupWizardInner() {
         deadline: state.deadline,
         stakeUsd: state.stakeUsd,
       });
+      await saveProject(project).catch((err) => {
+        console.warn("Could not persist project draft to Supabase.", err);
+        return project;
+      });
       const emailRecipients = project.contributors
         .filter((contributor) => contributor.role !== "owner" && contributor.email.includes("@"))
         .map((contributor) => ({ email: contributor.email, name: contributor.name }));
@@ -392,6 +397,9 @@ function SetupWizardInner() {
           recipients: emailRecipients,
         });
         projectStore.update(project.id, { inviteDeliveries: delivery.deliveries });
+        await updateProject(project.id, { inviteDeliveries: delivery.deliveries }).catch((err) => {
+          console.warn("Could not persist invite delivery status.", err);
+        });
       }
       router.push(`/new/done?id=${project.id}`);
     } catch (err) {

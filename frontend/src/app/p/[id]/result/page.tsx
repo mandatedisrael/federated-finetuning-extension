@@ -26,6 +26,7 @@ import { usePageTitle } from "@/lib/a11y/usePageTitle";
 import { downloadFfeArtifact } from "@/lib/ffe/client";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject, seedMustPassResults } from "@/lib/mock/seedDemo";
+import { loadProject } from "@/lib/projects/client";
 import { streamMockReply, type MockStream } from "@/lib/mock/mockChat";
 import type { DownloadFfeArtifactResult } from "@/lib/ffe/types";
 import type { Project } from "@/lib/mock/types";
@@ -180,14 +181,28 @@ export default function ResultPlaygroundPage() {
   React.useEffect(() => {
     if (!params?.id) return;
     const id = params.id;
-    const p = projectStore.get(id) ?? ensureDemoProject(id);
-    seedMustPassResults(p.id);
-    setProject(projectStore.get(id) ?? p);
+    let cancelled = false;
+    async function loadResultProject() {
+      await Promise.resolve();
+      const p = projectStore.get(id) ?? ensureDemoProject(id);
+      seedMustPassResults(p.id);
+      if (!cancelled) setProject(projectStore.get(id) ?? p);
+      loadProject(id)
+        .then((remote) => {
+          if (!cancelled) setProject(remote);
+        })
+        .catch(() => undefined);
+    }
+    void loadResultProject();
+    return () => {
+      cancelled = true;
+    };
   }, [params?.id]);
 
   React.useEffect(() => {
+    const streams = streamsRef.current;
     return () => {
-      streamsRef.current.forEach((s) => s.cancel());
+      streams.forEach((s) => s.cancel());
     };
   }, []);
 

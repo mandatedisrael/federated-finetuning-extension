@@ -23,6 +23,21 @@ Project creation now sends invite emails for every email-based invitee through
 real email. Without those values, the API returns preview deliveries so local development does not
 pretend an email was sent.
 
+## Supabase Persistence
+
+Projects are persisted through server-only Supabase routes:
+
+- `POST /api/projects` saves draft projects, contributors, invite codes, scenarios, versions,
+  chain sessions, submissions, artifacts, and invite delivery status.
+- `GET /api/projects/[id]` and `GET /api/projects/invite/[code]` hydrate the dashboard and invite
+  join flow from the shared database.
+- `POST /api/projects/[id]/register` claims an invite seat, stores the contributor wallet and FFE
+  public key, and keeps the browser-only private key out of Supabase.
+
+Apply `../supabase/migrations/20260514170000_ffe_project_persistence.sql` to the Supabase project,
+then set `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. Public tables
+have RLS enabled; the frontend writes through Next API routes using the server-side service role.
+
 ## Live FFE bridge
 
 The frontend now has a server-side bridge for the real SDK path:

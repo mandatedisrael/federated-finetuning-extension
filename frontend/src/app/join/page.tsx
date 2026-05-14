@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useSignIn } from "@/lib/auth/useSignIn";
 import { createBrowserFfeKeyPair } from "@/lib/ffe/keys";
 import { projectStore } from "@/lib/mock/projectStore";
+import { loadProjectByInviteCode, registerProjectContributor } from "@/lib/projects/client";
 import type { Project } from "@/lib/mock/types";
 
 export default function JoinPage() {
@@ -56,7 +57,8 @@ function JoinInner() {
     setError(null);
     setBusy(true);
     try {
-      const matched = projectStore.findByInviteCode(c);
+      const matched =
+        (await loadProjectByInviteCode(c).catch(() => null)) ?? projectStore.findByInviteCode(c);
       if (!matched) {
         throw new Error("Could not find a project with that invite code.");
       }
@@ -99,6 +101,16 @@ function JoinInner() {
       }
 
       const keys = createBrowserFfeKeyPair();
+      const persisted = await registerProjectContributor({
+        projectId: matched.id,
+        inviteCode: matched.inviteCode,
+        userId: user.id,
+        displayName: user.displayName,
+        email: user.email,
+        walletAddress: wallet.address,
+        ffePublicKey: keys.publicKey,
+        ffePrivateKey: keys.privateKey,
+      }).catch(() => null);
       const contributors = matched.contributors.map((contributor) =>
         contributor.id === target.id
           ? {
@@ -113,7 +125,7 @@ function JoinInner() {
             }
           : contributor,
       );
-      const updated = projectStore.update(matched.id, { contributors });
+      const updated = persisted ?? projectStore.update(matched.id, { contributors });
       if (updated) setProject(updated);
       setRegistered(true);
       window.setTimeout(() => router.push(`/p/${matched.id}`), 700);

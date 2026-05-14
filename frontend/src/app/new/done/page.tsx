@@ -11,6 +11,7 @@ import { AvatarStack } from "@/components/domain/AvatarStack";
 import { TrustBadge } from "@/components/domain/TrustBadge";
 import { UserPill } from "@/components/auth/UserPill";
 import { projectStore } from "@/lib/mock/projectStore";
+import { loadProject } from "@/lib/projects/client";
 import type { Project } from "@/lib/mock/types";
 
 export default function ProjectCreatedPage() {
@@ -28,20 +29,39 @@ function ProjectCreatedInner() {
 
   const [project, setProject] = React.useState<Project | null>(null);
   const [copied, setCopied] = React.useState(false);
-  const [origin, setOrigin] = React.useState("");
+  const [origin] = React.useState(() =>
+    typeof window === "undefined" ? "" : window.location.origin,
+  );
 
   React.useEffect(() => {
-    setOrigin(window.location.origin);
     if (!id) {
       router.replace("/new");
       return;
     }
-    const p = projectStore.get(id);
-    if (!p) {
-      router.replace("/new");
-      return;
+    const projectId = id;
+    let cancelled = false;
+    async function loadCreatedProject() {
+      await Promise.resolve();
+      const p = projectStore.get(projectId);
+      if (!p) {
+        loadProject(projectId)
+          .then((remote) => {
+            if (!cancelled) setProject(remote);
+          })
+          .catch(() => router.replace("/new"));
+        return;
+      }
+      if (!cancelled) setProject(p);
+      loadProject(projectId)
+        .then((remote) => {
+          if (!cancelled) setProject(remote);
+        })
+        .catch(() => undefined);
     }
-    setProject(p);
+    void loadCreatedProject();
+    return () => {
+      cancelled = true;
+    };
   }, [id, router]);
 
   if (!project) return null;

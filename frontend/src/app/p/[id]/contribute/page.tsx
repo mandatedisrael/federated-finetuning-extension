@@ -23,6 +23,7 @@ import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject } from "@/lib/mock/seedDemo";
 import { filesToFfePayload, prepareFfeContribution, submitFfeContribution } from "@/lib/ffe/client";
 import { submitPreparedContributionWithWallet } from "@/lib/ffe/walletSubmit";
+import { loadProject, updateProject } from "@/lib/projects/client";
 import type { Project } from "@/lib/mock/types";
 
 export default function ContributePage() {
@@ -34,7 +35,21 @@ export default function ContributePage() {
 
   React.useEffect(() => {
     if (!params?.id) return;
-    setProject(projectStore.get(params.id) ?? ensureDemoProject(params.id));
+    const id = params.id;
+    let cancelled = false;
+    async function loadContributionProject() {
+      await Promise.resolve();
+      if (!cancelled) setProject(projectStore.get(id) ?? ensureDemoProject(id));
+      loadProject(id)
+        .then((remote) => {
+          if (!cancelled) setProject(remote);
+        })
+        .catch(() => undefined);
+    }
+    void loadContributionProject();
+    return () => {
+      cancelled = true;
+    };
   }, [params?.id]);
 
   if (!project) {
@@ -231,11 +246,15 @@ function UploadFlow({ projectId }: { projectId: string }) {
             : c,
         );
         const alreadyUploaded = updated.some((c) => c.status === "uploaded");
-        projectStore.update(projectId, {
+        const patch = {
           contributors: updated,
           stage: alreadyUploaded ? "training" : p.stage,
           submissionReceipts: [...(p.submissionReceipts ?? []), receipt],
-        });
+        };
+        projectStore.update(projectId, patch);
+        await updateProject(projectId, patch).catch((err) =>
+          console.warn("Could not persist contribution receipt.", err),
+        );
       }
 
       await new Promise((r) => setTimeout(r, 600));
