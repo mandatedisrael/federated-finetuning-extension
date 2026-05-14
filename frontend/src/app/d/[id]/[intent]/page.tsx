@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { SignInDialog } from "@/components/auth/SignInDialog";
+import { useSignIn } from "@/lib/auth/useSignIn";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { projectStore } from "@/lib/mock/projectStore";
 import { isNotifyIntent, type NotifyIntent } from "@/lib/notify/deepLinks";
@@ -41,6 +41,7 @@ export default function NotifyDeepLinkPage() {
   const { user, status } = useAuth();
   const [error, setError] = React.useState<string | null>(null);
   const [needsSignIn, setNeedsSignIn] = React.useState(false);
+  const signIn = useSignIn();
 
   const rawIntent = params?.intent ? decodeURIComponent(params.intent) : "";
   const deepLink =
@@ -57,6 +58,7 @@ export default function NotifyDeepLinkPage() {
 
     if (status === "anonymous") {
       setNeedsSignIn(true);
+      signIn(deepLink);
       return;
     }
 
@@ -96,13 +98,6 @@ export default function NotifyDeepLinkPage() {
           </p>
         )}
       </div>
-      {needsSignIn && (
-        <SignInDialog
-          open={needsSignIn}
-          onOpenChange={setNeedsSignIn}
-          redirectTo={deepLink}
-        />
-      )}
     </main>
   );
 }

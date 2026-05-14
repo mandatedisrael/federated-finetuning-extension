@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { TrustBadge } from "@/components/domain/TrustBadge";
+import { UserPill } from "@/components/auth/UserPill";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { SignInDialog } from "@/components/auth/SignInDialog";
+import { useSignIn } from "@/lib/auth/useSignIn";
 
 export default function JoinPage() {
   return (
@@ -29,7 +30,7 @@ function JoinInner() {
   const [code, setCode] = React.useState(initialCode);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [showSignIn, setShowSignIn] = React.useState(false);
+  const signIn = useSignIn();
 
   React.useEffect(() => {
     if (initialCode && status === "authenticated") {
@@ -65,7 +66,7 @@ function JoinInner() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (status !== "authenticated") {
-      setShowSignIn(true);
+      signIn(`/join?code=${encodeURIComponent(code)}`);
       return;
     }
     void redeem(code);
@@ -73,12 +74,11 @@ function JoinInner() {
 
   return (
     <main className="relative flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 pt-6">
+      <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 pt-6">
         <Link href="/" className="font-serif text-xl tracking-tight">
           FFE<span className="text-foreground-subtle">.</span>
         </Link>
-        <TrustBadge />
-      </header>
+        <div className="flex items-center gap-3"><TrustBadge /><UserPill /></div>      </header>
 
       <section className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-16">
         <motion.div
@@ -128,13 +128,6 @@ function JoinInner() {
         </motion.div>
       </section>
 
-      {showSignIn && (
-        <SignInDialog
-          open={showSignIn}
-          onOpenChange={setShowSignIn}
-          redirectTo={`/join?code=${encodeURIComponent(code)}`}
-        />
-      )}
     </main>
   );
 }
