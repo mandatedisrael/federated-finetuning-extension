@@ -2,11 +2,11 @@
 
 import * as React from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { SignInDialog } from "./SignInDialog";
+import { useSignIn } from "@/lib/auth/useSignIn";
 
 /**
- * Wraps any trigger (link/button) so that anonymous users see the
- * sign-in dialog instead of being routed to the destination.
+ * Wraps any trigger (link/button) so that anonymous users see Privy's
+ * sign-in modal instead of being routed to the destination.
  * Authed users get the normal click-through behavior.
  */
 export function AuthGate({
@@ -17,22 +17,17 @@ export function AuthGate({
   redirectTo?: string;
 }) {
   const { status } = useAuth();
-  const [open, setOpen] = React.useState(false);
+  const signIn = useSignIn();
 
   const trigger = React.cloneElement(children, {
     onClick: (e: React.MouseEvent) => {
       if (status !== "authenticated") {
         e.preventDefault();
-        setOpen(true);
+        signIn(redirectTo);
       }
       children.props.onClick?.(e);
     },
   });
 
-  return (
-    <>
-      {trigger}
-      {open && <SignInDialog open={open} onOpenChange={setOpen} redirectTo={redirectTo} />}
-    </>
-  );
+  return trigger;
 }
