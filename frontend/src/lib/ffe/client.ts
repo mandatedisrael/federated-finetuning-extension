@@ -2,6 +2,7 @@ import type {
   CreateFfeProjectSessionInput,
   CreateFfeProjectSessionResult,
   FfeApiErrorBody,
+  FfeSessionStatusResult,
   SubmitFfeContributionFile,
   SubmitFfeContributionInput,
   SubmitFfeContributionResult,
@@ -70,4 +71,11 @@ export async function submitFfeContribution(
     body: JSON.stringify(input),
   });
   return parseApiResponse<SubmitFfeContributionResult>(res);
+}
+
+export async function getFfeSessionStatus(sessionId: string): Promise<FfeSessionStatusResult> {
+  const res = await fetch(`/api/ffe/sessions/${encodeURIComponent(sessionId)}`, {
+    cache: "no-store",
+  });
+  return parseApiResponse<FfeSessionStatusResult>(res);
 }

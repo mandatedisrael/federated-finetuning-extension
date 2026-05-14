@@ -60,3 +60,14 @@ export interface SubmitFfeContributionResult {
   submitTxHash: string;
   submittedAt: string;
 }
+
+export interface FfeSessionStatusResult {
+  sessionId: string;
+  status: "open" | "quorum-reached";
+  stage: "waiting" | "checking" | "training";
+  quorum: number;
+  submittedCount: number;
+  participants: string[];
+  submitters: string[];
+  aggregatorPubkeySet: boolean;
+}

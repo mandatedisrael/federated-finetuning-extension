@@ -38,9 +38,11 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePageTitle } from "@/lib/a11y/usePageTitle";
+import { getFfeSessionStatus } from "@/lib/ffe/client";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject, seedSampleProgress } from "@/lib/mock/seedDemo";
 import { getTemplate } from "@/lib/mock/templates";
+import type { FfeSessionStatusResult } from "@/lib/ffe/types";
 import type { Project } from "@/lib/mock/types";
 
 function ProjectSettingsButton({
@@ -145,6 +147,7 @@ export default function ProjectDashboardPage() {
   const params = useParams<{ id: string }>();
   const { user } = useAuth();
   const [project, setProject] = React.useState<Project | null>(null);
+  const [sessionStatus, setSessionStatus] = React.useState<FfeSessionStatusResult | null>(null);
 
   usePageTitle(project?.name ?? "Project");
 
@@ -156,7 +159,27 @@ export default function ProjectDashboardPage() {
     if (!p.chainSession && p.contributors.every((c) => c.status === "not-started")) {
       seedSampleProgress(p.id);
     }
-    setProject(projectStore.get(id) ?? null);
+    const current = projectStore.get(id) ?? null;
+    setProject(current);
+    setSessionStatus(null);
+
+    if (!current?.chainSession) return;
+    let cancelled = false;
+    getFfeSessionStatus(current.chainSession.sessionId)
+      .then((status) => {
+        if (cancelled) return;
+        setSessionStatus(status);
+        const latest = projectStore.get(id);
+        if (!latest || latest.stage === "ready") return;
+        const updated = projectStore.update(id, { stage: status.stage });
+        if (updated) setProject(updated);
+      })
+      .catch(() => {
+        if (!cancelled) setSessionStatus(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [params?.id]);
 
   if (!project) {
@@ -327,7 +350,7 @@ export default function ProjectDashboardPage() {
           <ProgressBar stage={project.stage} />
 
           {project.chainSession && (
-            <div className="border-border bg-surface-muted/40 mt-5 grid gap-3 rounded-[var(--radius-md)] border p-4 text-xs sm:grid-cols-3">
+            <div className="border-border bg-surface-muted/40 mt-5 grid gap-3 rounded-[var(--radius-md)] border p-4 text-xs sm:grid-cols-4">
               <div>
                 <p className="text-foreground-subtle tracking-widest uppercase">FFE session</p>
                 <p className="text-foreground mt-1 font-mono">#{project.chainSession.sessionId}</p>
@@ -340,6 +363,14 @@ export default function ProjectDashboardPage() {
                 <p className="text-foreground-subtle tracking-widest uppercase">Mode</p>
                 <p className="text-foreground mt-1">Live server bridge</p>
               </div>
+              {sessionStatus && (
+                <div>
+                  <p className="text-foreground-subtle tracking-widest uppercase">On-chain</p>
+                  <p className="text-foreground mt-1">
+                    {sessionStatus.submittedCount}/{sessionStatus.quorum} submitted
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

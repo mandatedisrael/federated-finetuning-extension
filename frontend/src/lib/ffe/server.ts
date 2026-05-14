@@ -2,6 +2,7 @@ import { FFE, crypto } from "@notmartin/ffe";
 import type {
   CreateFfeProjectSessionInput,
   CreateFfeProjectSessionResult,
+  FfeSessionStatusResult,
   SubmitFfeContributionFile,
   SubmitFfeContributionResult,
 } from "./types";
@@ -212,5 +213,29 @@ export async function submitProxyContribution(input: {
     storageTxHash: result.storageTxHash,
     submitTxHash: result.submitTxHash,
     submittedAt: new Date().toISOString(),
+  };
+}
+
+export async function getSessionStatus(sessionIdInput: string): Promise<FfeSessionStatusResult> {
+  const sessionId = BigInt(sessionIdInput);
+  const ffe = createFfeClient();
+  const [session, participants, submitters] = await Promise.all([
+    ffe.coordinator.getSession(sessionId),
+    ffe.coordinator.getParticipants(sessionId),
+    ffe.coordinator.getSubmitters(sessionId),
+  ]);
+  const status = session.status === 1 ? "quorum-reached" : "open";
+  const submittedCount = Number(session.submittedCount);
+  const quorum = Number(session.quorum);
+
+  return {
+    sessionId: sessionIdInput,
+    status,
+    stage: status === "quorum-reached" ? "training" : submittedCount > 0 ? "checking" : "waiting",
+    quorum,
+    submittedCount,
+    participants: [...participants],
+    submitters: [...submitters],
+    aggregatorPubkeySet: session.aggregatorPubkey !== "0x" && session.aggregatorPubkey.length > 2,
   };
 }

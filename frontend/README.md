@@ -22,6 +22,7 @@ The frontend now has a server-side bridge for the real SDK path:
 
 - `POST /api/ffe/projects` creates a Coordinator session with `FFE.openSession()`.
 - `POST /api/ffe/contributions` uploads contributor data with `FFE.submit()`.
+- `GET /api/ffe/sessions/[sessionId]` reads Coordinator status for live dashboard progress.
 
 For this first slice, the API route acts as a server-side proxy participant so private signing keys
 never live in the browser. Set the values in `.env.local.example`, run the aggregator with the same
