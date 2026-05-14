@@ -31,7 +31,7 @@ export default function EmailPreviewPage() {
 
   return (
     <main className="relative flex flex-1 flex-col">
-      <header className="border-border mx-auto flex w-full max-w-6xl items-center justify-between border-b px-6 py-4">
+      <header className="border-border mx-auto flex w-full max-w-7xl items-center justify-between border-b px-6 py-4">
         <span className="font-serif text-lg tracking-tight">
           FFE<span className="text-foreground-subtle">.</span>
         </span>

@@ -42,7 +42,7 @@ export function WizardShell({
 
   return (
     <main className="relative flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 pt-6">
+      <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 pt-6">
         <Link href="/" className="font-serif text-xl tracking-tight">
           FFE<span className="text-foreground-subtle">.</span>
         </Link>
