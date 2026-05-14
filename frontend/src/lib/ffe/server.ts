@@ -65,6 +65,14 @@ function readHexBytes(value: string, name: string): Uint8Array {
   return bytes;
 }
 
+function requirePublicKey(value: string, name: string): Uint8Array {
+  const bytes = readHexBytes(value, name);
+  if (bytes.length !== 32) {
+    throw new Error(`${name} must be a 32-byte X25519 public key.`);
+  }
+  return bytes;
+}
+
 function normalizeAddress(value: string, name: string): `0x${string}` {
   if (!/^0x[a-fA-F0-9]{40}$/.test(value)) {
     throw new Error(`${name} must be a 0x-prefixed EVM address.`);
@@ -129,36 +137,68 @@ export async function createProxySession(
   const config = loadFfeServerConfig();
   const ffe = createFfeClient(config);
   const ownerParticipant = input.ownerParticipant;
+  const registeredParticipants = input.participants?.filter(
+    (participant) => participant.address && participant.publicKey,
+  );
   const proxyParticipant = crypto.generateKeyPair();
-  const participant = ownerParticipant
-    ? {
-        address: normalizeAddress(ownerParticipant.address, "ownerParticipant.address"),
-        publicKey: readHexBytes(ownerParticipant.publicKey, "ownerParticipant.publicKey"),
-        privateKey: ownerParticipant.privateKey,
-      }
-    : {
-        address: ffe.account,
-        publicKey: proxyParticipant.publicKey,
-        privateKey: bytesToHex(proxyParticipant.privateKey),
-      };
+  const participants =
+    registeredParticipants && registeredParticipants.length > 0
+      ? registeredParticipants.map((participant, index) => ({
+          contributorId: participant.contributorId,
+          address: normalizeAddress(participant.address, `participants[${index}].address`),
+          publicKey: requirePublicKey(participant.publicKey, `participants[${index}].publicKey`),
+          publicKeyHex: participant.publicKey,
+          privateKey: participant.privateKey,
+        }))
+      : ownerParticipant
+        ? [
+            {
+              contributorId: input.owner.id,
+              address: normalizeAddress(ownerParticipant.address, "ownerParticipant.address"),
+              publicKey: requirePublicKey(ownerParticipant.publicKey, "ownerParticipant.publicKey"),
+              publicKeyHex: ownerParticipant.publicKey,
+              privateKey: ownerParticipant.privateKey,
+            },
+          ]
+        : [
+            {
+              contributorId: input.owner.id,
+              address: ffe.account,
+              publicKey: proxyParticipant.publicKey,
+              publicKeyHex: bytesToHex(proxyParticipant.publicKey),
+              privateKey: bytesToHex(proxyParticipant.privateKey),
+            },
+          ];
   const result = await ffe.openSession({
     baseModel: config.baseModel,
-    participants: [{ address: participant.address, publicKey: participant.publicKey }],
-    quorum: 1,
+    participants: participants.map((participant) => ({
+      address: participant.address,
+      publicKey: participant.publicKey,
+    })),
+    quorum: participants.length,
     aggregatorPubkey: config.aggregatorPubkey,
   });
+  const primaryParticipant = participants[0]!;
 
   return {
-    mode: ownerParticipant ? "wallet-owner" : "server-proxy",
+    mode: participants.some((participant) => participant.address !== ffe.account)
+      ? "wallet-owner"
+      : "server-proxy",
     sessionId: result.sessionId.toString(),
     baseModel: config.baseModel,
-    participantAddress: participant.address,
-    participantPubkey: bytesToHex(participant.publicKey),
-    participantPrivateKey: participant.privateKey,
+    participantAddress: primaryParticipant.address,
+    participantPubkey: primaryParticipant.publicKeyHex,
+    participantPrivateKey: primaryParticipant.privateKey ?? "",
     aggregatorPubkey: config.aggregatorPubkeyHex,
     createTxHash: result.createTxHash,
     setAggregatorTxHash: result.setAggregatorTxHash,
     createdAt: new Date().toISOString(),
+    participants: participants.map((participant) => ({
+      contributorId: participant.contributorId,
+      address: participant.address,
+      publicKey: participant.publicKeyHex,
+      privateKey: participant.privateKey,
+    })),
   };
 }
 

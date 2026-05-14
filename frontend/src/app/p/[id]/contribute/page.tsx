@@ -180,12 +180,22 @@ function UploadFlow({ projectId }: { projectId: string }) {
         id: user?.id ?? "anonymous",
         name: user?.displayName ?? "Contributor",
       };
+      const participant =
+        chainSession.participants?.find((item) => user && item.contributorId === user.id) ??
+        chainSession.participants?.find((item) =>
+          wallets.some(
+            (candidate) =>
+              candidate.type === "ethereum" &&
+              candidate.address.toLowerCase() === item.address.toLowerCase(),
+          ),
+        );
       const wallet =
         chainSession.mode === "wallet-owner"
           ? wallets.find(
               (candidate) =>
                 candidate.type === "ethereum" &&
-                candidate.address.toLowerCase() === chainSession.participantAddress.toLowerCase(),
+                candidate.address.toLowerCase() ===
+                  (participant?.address ?? chainSession.participantAddress).toLowerCase(),
             )
           : undefined;
       if (chainSession.mode === "wallet-owner" && !wallet) {

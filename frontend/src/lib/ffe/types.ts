@@ -21,6 +21,12 @@ export interface CreateFfeProjectSessionInput {
     publicKey: string;
     privateKey: string;
   };
+  participants?: Array<{
+    contributorId: string;
+    address: string;
+    publicKey: string;
+    privateKey?: string;
+  }>;
 }
 
 export interface CreateFfeProjectSessionResult {
@@ -34,6 +40,12 @@ export interface CreateFfeProjectSessionResult {
   createTxHash: string;
   setAggregatorTxHash?: string;
   createdAt: string;
+  participants?: Array<{
+    contributorId: string;
+    address: string;
+    publicKey: string;
+    privateKey?: string;
+  }>;
 }
 
 export interface SubmitFfeContributionFile {

@@ -26,13 +26,12 @@ the real `@notmartin/ffe` SDK for `openSession()` and `submit()`. Project state
 still uses the local browser cache as the UI store, but new projects carry a
 real Coordinator `sessionId`, transaction hashes, and contribution receipts.
 
-Current integration mode prefers `wallet-owner`: new projects created with a
-connected Privy Ethereum wallet register that wallet as the Coordinator
-participant, the server prepares encrypted 0G Storage payloads, and the browser
-wallet signs `Coordinator.submit()`. If no wallet is available, the app falls
-back to the earlier `server-proxy` mode. The next milestone is registering all
-contributors with their own wallet/pubkey pair and adding a real project
-indexer/API.
+Current integration mode uses draft preregistration: new projects start
+off-chain, contributors open `/join?code=...` to connect a wallet and generate
+an X25519 pubkey, and the owner starts the real Coordinator session once the
+participant list is ready. The server prepares encrypted 0G Storage payloads,
+and the browser wallet signs `Coordinator.submit()`. The next milestone is a
+real project indexer/API so this state is no longer browser-local.
 
 ## Location
 
@@ -187,7 +186,8 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 77. `feat(ffe): poll Coordinator/INFT state instead of relying on local cache`
 - [x] 78. `feat(ffe): submit Coordinator transactions with connected wallet`
 - [x] 79. `feat(ffe): add download/playground flow for minted INFT artifacts`
-- [ ] 80. `feat(ffe): register invited contributors with wallet/pubkey pairs`
+- [x] 80. `feat(ffe): register invited contributors with wallet/pubkey pairs`
+- [ ] 81. `feat(ffe): persist projects and registrations outside browser localStorage`
 
 ---
 

@@ -28,12 +28,12 @@ The frontend now has a server-side bridge for the real SDK path:
 - `POST /api/ffe/sessions/[sessionId]/artifact` resolves the minted INFT and decrypts the LoRA
   artifact receipt for the project playground.
 
-New projects prefer `wallet-owner` mode when Privy exposes a connected Ethereum wallet: the server
-creates the session, but the browser wallet signs `Coordinator.submit()` after the server prepares
-the encrypted 0G Storage payload. Projects created without a connected wallet still use the
-`server-proxy` fallback. Set the values in `.env.local.example`, run the aggregator with the same
-Coordinator/INFT/storage settings, and enable `USE_REAL_0G_TRAINING=true` in the aggregator when you
-want the quorum event to trigger the real 0G fine-tuning service.
+New projects start as drafts. Contributors open `/join?code=...`, connect a wallet, and register an
+X25519 training key. The owner then starts the real Coordinator session from the dashboard, using
+the registered wallet/pubkey list. The browser wallet signs `Coordinator.submit()` after the server
+prepares the encrypted 0G Storage payload. Set the values in `.env.local.example`, run the
+aggregator with the same Coordinator/INFT/storage settings, and enable `USE_REAL_0G_TRAINING=true`
+in the aggregator when you want the quorum event to trigger the real 0G fine-tuning service.
 
 The artifact endpoint is still a development bridge: it receives the project participant X25519
 private key from the browser cache so it can call the current Node SDK decrypt path. The production

@@ -83,14 +83,14 @@ function ProjectCreatedInner() {
           transition={{ delay: 0.15, duration: 0.3 }}
         >
           <p className="text-foreground-subtle mb-3 text-xs tracking-[0.18em] uppercase">
-            Project created
+            Draft created
           </p>
           <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">
             Share this with your contributors.
           </h1>
           <p className="text-foreground-muted mt-3 text-base leading-relaxed">
-            Anyone with this link can join. They&apos;ll sign in with email or Google — no wallet
-            setup required on their side either.
+            Anyone with this link can join, connect a wallet, and register their training key before
+            you start the on-chain finetuning session.
           </p>
         </motion.div>
 

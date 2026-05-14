@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useWallets } from "@privy-io/react-auth";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
@@ -13,6 +14,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
   FastForward,
+  Loader2,
+  Play,
   Upload,
   ArrowRight,
   Sparkles,
@@ -38,7 +41,8 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePageTitle } from "@/lib/a11y/usePageTitle";
-import { getFfeSessionStatus } from "@/lib/ffe/client";
+import { createFfeProjectSession, getFfeSessionStatus } from "@/lib/ffe/client";
+import { createBrowserFfeKeyPair } from "@/lib/ffe/keys";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject, seedSampleProgress } from "@/lib/mock/seedDemo";
 import { getTemplate } from "@/lib/mock/templates";
@@ -146,8 +150,11 @@ function ProjectSettingsButton({
 export default function ProjectDashboardPage() {
   const params = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { wallets } = useWallets();
   const [project, setProject] = React.useState<Project | null>(null);
   const [sessionStatus, setSessionStatus] = React.useState<FfeSessionStatusResult | null>(null);
+  const [startBusy, setStartBusy] = React.useState(false);
+  const [startError, setStartError] = React.useState<string | null>(null);
 
   usePageTitle(project?.name ?? "Project");
 
@@ -156,7 +163,11 @@ export default function ProjectDashboardPage() {
     const id = params.id;
     const p = projectStore.get(id) ?? ensureDemoProject(id);
     // demo polish: seed contributor statuses the first time
-    if (!p.chainSession && p.contributors.every((c) => c.status === "not-started")) {
+    if (
+      p.ownerId === "u_demo_owner" &&
+      !p.chainSession &&
+      p.contributors.every((c) => c.status === "not-started")
+    ) {
       seedSampleProgress(p.id);
     }
     const current = projectStore.get(id) ?? null;
@@ -194,7 +205,98 @@ export default function ProjectDashboardPage() {
   const isOwner = user?.id === project.ownerId;
 
   const me = user ? project.contributors.find((c) => c.id === user.id) : undefined;
-  const isBlockingDeploy = !!me && project.stage === "waiting" && me.status === "not-started";
+  const isBlockingDeploy =
+    !!project.chainSession && !!me && project.stage === "waiting" && me.status === "not-started";
+  const registeredContributors = project.contributors.filter(
+    (contributor) => contributor.walletAddress && contributor.ffePublicKey,
+  );
+  const invitedContributors = project.contributors.filter(
+    (contributor) => contributor.role !== "owner",
+  );
+
+  async function startFfeSession() {
+    if (!project || !user) return;
+    setStartBusy(true);
+    setStartError(null);
+    try {
+      let contributors = project.contributors;
+      const owner = contributors.find((contributor) => contributor.id === project.ownerId);
+      const ownerWallet =
+        wallets.find(
+          (wallet) =>
+            wallet.type === "ethereum" &&
+            owner?.walletAddress &&
+            wallet.address.toLowerCase() === owner.walletAddress.toLowerCase(),
+        ) ??
+        wallets.find(
+          (wallet) =>
+            wallet.type === "ethereum" &&
+            user.walletAddress &&
+            wallet.address.toLowerCase() === user.walletAddress.toLowerCase(),
+        ) ??
+        wallets.find((wallet) => wallet.type === "ethereum");
+
+      if (!ownerWallet) {
+        throw new Error("Connect the owner wallet before starting the finetuning session.");
+      }
+
+      if (!owner?.ffePublicKey) {
+        const keys = createBrowserFfeKeyPair();
+        contributors = contributors.map((contributor) =>
+          contributor.id === project.ownerId
+            ? {
+                ...contributor,
+                walletAddress: ownerWallet.address,
+                ffePublicKey: keys.publicKey,
+                ffePrivateKey: keys.privateKey,
+                registeredAt: new Date().toISOString(),
+              }
+            : contributor,
+        );
+      }
+
+      const participants = contributors
+        .filter((contributor) => contributor.walletAddress && contributor.ffePublicKey)
+        .map((contributor) => ({
+          contributorId: contributor.id,
+          address: contributor.walletAddress!,
+          publicKey: contributor.ffePublicKey!,
+          privateKey: contributor.ffePrivateKey,
+        }));
+
+      if (participants.length === 0) {
+        throw new Error("At least one registered wallet is required before starting.");
+      }
+
+      const chainSession = await createFfeProjectSession({
+        templateId: project.templateId,
+        name: project.name,
+        goal: project.goal,
+        owner: {
+          id: user.id,
+          name: user.displayName,
+          email: user.email,
+          walletAddress: ownerWallet.address,
+        },
+        invitees: project.contributors
+          .filter((contributor) => contributor.role !== "owner")
+          .map((contributor) => ({ identifier: contributor.email, role: contributor.role })),
+        deadline: project.deadline,
+        stakeUsd: project.stakeUsd,
+        participants,
+      });
+      const updated = projectStore.update(project.id, {
+        contributors,
+        chainSession,
+        stage: "waiting",
+      });
+      if (updated) setProject(updated);
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : "Could not start the FFE session.");
+    } finally {
+      setStartBusy(false);
+    }
+  }
 
   return (
     <main className="relative flex flex-1 flex-col">
@@ -259,20 +361,42 @@ export default function ProjectDashboardPage() {
         {(() => {
           const me = user ? project.contributors.find((c) => c.id === user.id) : undefined;
           if (!me) return null;
-          const isWaitingOnYou = project.stage === "waiting" && me.status === "not-started";
+          const isDraft = !project.chainSession;
+          const isWaitingOnYou =
+            !isDraft && project.stage === "waiting" && me.status === "not-started";
           const isReady = project.stage === "ready";
-          const headline = isWaitingOnYou
-            ? "You're up."
+          const headline = isDraft
+            ? isOwner
+              ? "Collect contributor wallets."
+              : me.registeredAt
+                ? "You're registered."
+                : "Register from the invite link."
+            : isWaitingOnYou
+              ? "You're up."
+              : isReady
+                ? "The new version is ready."
+                : `Status: ${me.status.replace(/-/g, " ")}`;
+          const sub = isDraft
+            ? isOwner
+              ? "Share the invite link, then start the on-chain session when enough people are ready."
+              : me.registeredAt
+                ? "The owner can start finetuning once the team is ready."
+                : "Open the invite link to connect your wallet and register your training key."
+            : isWaitingOnYou
+              ? "Add your training examples to keep the project moving."
+              : isReady
+                ? "Try the new model side-by-side and vote."
+                : "We'll update you when the project changes stage.";
+          const ctaHref = isDraft
+            ? `/join?code=${project.inviteCode}`
             : isReady
-              ? "The new version is ready."
-              : `Status: ${me.status.replace(/-/g, " ")}`;
-          const sub = isWaitingOnYou
-            ? "Add your training examples to keep the project moving."
+              ? `/p/${project.id}/result`
+              : `/p/${project.id}/contribute`;
+          const ctaLabel = isDraft
+            ? "Open invite"
             : isReady
-              ? "Try the new model side-by-side and vote."
-              : "We'll update you when the project changes stage.";
-          const ctaHref = isReady ? `/p/${project.id}/result` : `/p/${project.id}/contribute`;
-          const ctaLabel = isReady ? "Try the new version" : "Go contribute";
+              ? "Try the new version"
+              : "Go contribute";
           const ctaIcon = isReady ? Sparkles : Upload;
 
           return (
@@ -329,7 +453,7 @@ export default function ProjectDashboardPage() {
         <section className="border-border bg-surface mt-6 rounded-[var(--radius-lg)] border p-6">
           <div className="mb-4 flex items-center justify-between gap-2">
             <h2 className="text-sm font-medium tracking-tight">Progress</h2>
-            {isOwner && !project.chainSession && (
+            {isOwner && project.ownerId === "u_demo_owner" && !project.chainSession && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -347,6 +471,50 @@ export default function ProjectDashboardPage() {
               </Button>
             )}
           </div>
+
+          {!project.chainSession && (
+            <div className="border-border bg-surface-muted/40 mb-5 rounded-[var(--radius-md)] border p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-foreground-subtle text-[10px] tracking-wider uppercase">
+                    Draft session
+                  </p>
+                  <p className="text-foreground mt-1 text-sm font-medium">
+                    {registeredContributors.length} of {project.contributors.length} wallets ready
+                  </p>
+                  <p className="text-foreground-muted mt-1 text-xs">
+                    Contributors register from the invite link before the on-chain session starts.
+                  </p>
+                </div>
+                {isOwner && (
+                  <Button onClick={startFfeSession} disabled={startBusy}>
+                    {startBusy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                    Start session
+                  </Button>
+                )}
+              </div>
+              {invitedContributors.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {project.contributors.map((contributor) => (
+                    <Badge
+                      key={contributor.id}
+                      tone={contributor.registeredAt ? "success" : "neutral"}
+                      outline={!contributor.registeredAt}
+                    >
+                      {contributor.name}
+                      {contributor.registeredAt ? " ready" : " pending"}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {startError && <p className="text-status-danger mt-3 text-xs">{startError}</p>}
+            </div>
+          )}
+
           <ProgressBar stage={project.stage} />
 
           {project.chainSession && (

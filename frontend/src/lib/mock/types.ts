@@ -36,6 +36,9 @@ export interface Contributor {
   exampleCount: number;
   avatarUrl?: string;
   walletAddress?: string;
+  ffePublicKey?: string;
+  ffePrivateKey?: string;
+  registeredAt?: string;
 }
 
 export interface MustPassScenario {
@@ -88,6 +91,14 @@ export interface ProjectChainSession {
   createTxHash: string;
   setAggregatorTxHash?: string;
   createdAt: string;
+  participants?: ProjectChainParticipant[];
+}
+
+export interface ProjectChainParticipant {
+  contributorId: string;
+  address: string;
+  publicKey: string;
+  privateKey?: string;
 }
 
 export interface ProjectSubmissionReceipt {

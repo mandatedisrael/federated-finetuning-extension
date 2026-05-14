@@ -40,6 +40,7 @@ export interface CreateProjectInput {
   ownerId: string;
   ownerName: string;
   ownerEmail: string;
+  ownerWalletAddress?: string;
   invitees: Array<{ identifier: string; role: Role }>;
   deadline: string;
   stakeUsd: number;
@@ -60,6 +61,7 @@ function contributorFromInvitee(inv: { identifier: string; role: Role }, i: numb
     role: inv.role,
     status: "not-started",
     exampleCount: 0,
+    walletAddress: /^0x[a-fA-F0-9]{6,}$/.test(inv.identifier) ? inv.identifier : undefined,
   };
 }
 
@@ -72,6 +74,11 @@ export const projectStore = {
     return load().find((p) => p.id === id);
   },
 
+  findByInviteCode(code: string): Project | undefined {
+    const normalized = code.trim().toUpperCase();
+    return load().find((p) => p.inviteCode.toUpperCase() === normalized);
+  },
+
   create(input: CreateProjectInput): Project {
     const id = shortId("p");
     const owner: Contributor = {
@@ -81,6 +88,7 @@ export const projectStore = {
       role: "owner",
       status: "not-started",
       exampleCount: 0,
+      walletAddress: input.ownerWalletAddress,
     };
     const project: Project = {
       id,

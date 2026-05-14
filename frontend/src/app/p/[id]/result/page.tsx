@@ -244,9 +244,19 @@ export default function ResultPlaygroundPage() {
     setArtifactBusy(true);
     setArtifactError(null);
     try {
+      const participant = chainSession.participants?.find(
+        (item) => user && item.contributorId === user.id,
+      ) ??
+        chainSession.participants?.find((item) => item.privateKey) ?? {
+          address: chainSession.participantAddress,
+          privateKey: chainSession.participantPrivateKey,
+        };
+      if (!participant.privateKey) {
+        throw new Error("This browser does not have the recipient key for the minted artifact.");
+      }
       const result = await downloadFfeArtifact(chainSession.sessionId, {
-        participantAddress: chainSession.participantAddress,
-        recipientPrivateKey: chainSession.participantPrivateKey,
+        participantAddress: participant.address,
+        recipientPrivateKey: participant.privateKey,
       });
       setArtifact(result);
     } catch (err) {

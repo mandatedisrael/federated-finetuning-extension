@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useWallets } from "@privy-io/react-auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { AlertCircle, Plus, X, Calendar } from "lucide-react";
@@ -14,8 +13,6 @@ import { Button } from "@/components/ui/Button";
 import { getTemplate } from "@/lib/mock/templates";
 import { projectStore } from "@/lib/mock/projectStore";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { createFfeProjectSession } from "@/lib/ffe/client";
-import { createBrowserFfeKeyPair } from "@/lib/ffe/keys";
 import type { Role } from "@/lib/mock/types";
 
 interface Invitee {
@@ -84,7 +81,6 @@ function SetupWizardInner() {
   const router = useRouter();
   const params = useSearchParams();
   const { user } = useAuth();
-  const { wallets } = useWallets();
   const templateId = params.get("template") ?? "customer-support";
   const template = getTemplate(templateId);
   const [creating, setCreating] = React.useState(false);
@@ -365,39 +361,10 @@ function SetupWizardInner() {
     setCreationError(null);
 
     try {
-      const ownerWallet = wallets.find(
-        (wallet) =>
-          wallet.type === "ethereum" &&
-          user.walletAddress &&
-          wallet.address.toLowerCase() === user.walletAddress.toLowerCase(),
-      );
-      const ownerKeys = ownerWallet ? createBrowserFfeKeyPair() : null;
       const invitees = validInvitees.map((i) => ({
         identifier: i.identifier.trim(),
         role: i.role,
       }));
-      const chainSession = await createFfeProjectSession({
-        templateId,
-        name: template?.name ?? "Untitled project",
-        goal: state.goal.trim(),
-        owner: {
-          id: user.id,
-          name: user.displayName,
-          email: user.email,
-          walletAddress: user.walletAddress,
-        },
-        invitees,
-        deadline: state.deadline,
-        stakeUsd: state.stakeUsd,
-        ownerParticipant:
-          ownerWallet && ownerKeys
-            ? {
-                address: ownerWallet.address,
-                publicKey: ownerKeys.publicKey,
-                privateKey: ownerKeys.privateKey,
-              }
-            : undefined,
-      });
       const project = projectStore.create({
         templateId,
         name: template?.name ?? "Untitled project",
@@ -405,14 +372,14 @@ function SetupWizardInner() {
         ownerId: user.id,
         ownerName: user.displayName,
         ownerEmail: user.email,
+        ownerWalletAddress: user.walletAddress || undefined,
         invitees,
         deadline: state.deadline,
         stakeUsd: state.stakeUsd,
       });
-      projectStore.update(project.id, { chainSession });
       router.push(`/new/done?id=${project.id}`);
     } catch (err) {
-      setCreationError(err instanceof Error ? err.message : "Could not create the FFE session.");
+      setCreationError(err instanceof Error ? err.message : "Could not create the draft project.");
       setCreating(false);
     }
   }
@@ -433,7 +400,7 @@ function SetupWizardInner() {
       onNext={handleNext}
       onCancel={() => router.push("/new")}
       busy={creating}
-      finishLabel={creating ? "Creating on 0G…" : "Create project"}
+      finishLabel={creating ? "Creating draft…" : "Create draft"}
     />
   );
 }
