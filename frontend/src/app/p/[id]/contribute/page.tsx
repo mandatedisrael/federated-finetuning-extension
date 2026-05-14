@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
-import { ArrowLeft, Calendar, ShieldCheck, Upload, Pencil } from "lucide-react";
+import { AlertCircle, ArrowLeft, Calendar, ShieldCheck, Upload, Pencil } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { TrustBadge } from "@/components/domain/TrustBadge";
 import { UserPill } from "@/components/auth/UserPill";
@@ -20,6 +20,7 @@ import { SubmitStateMachine, type SubmitPhase } from "@/components/contribute/Su
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject } from "@/lib/mock/seedDemo";
+import { filesToFfePayload, submitFfeContribution } from "@/lib/ffe/client";
 import type { Project } from "@/lib/mock/types";
 
 export default function ContributePage() {
@@ -135,9 +136,11 @@ function UploadFlow({ projectId }: { projectId: string }) {
   const [phase, setPhase] = React.useState<UploadPhase>("idle");
   const [report, setReport] = React.useState<ConciergeReport | null>(null);
   const [submit, setSubmit] = React.useState<SubmitPhase>("idle");
+  const [error, setError] = React.useState<string | null>(null);
 
   async function handleFiles(next: File[]) {
     setFiles(next);
+    setError(null);
     setPhase("scanning");
     const r = await scanFiles(next);
     setReport(r);
@@ -149,32 +152,60 @@ function UploadFlow({ projectId }: { projectId: string }) {
     setReport(null);
     setPhase("idle");
     setSubmit("idle");
+    setError(null);
   }
 
   async function handleSubmit() {
     if (!report) return;
+    const p = projectStore.get(projectId);
+    const chainSession = p?.chainSession;
+    if (!chainSession) {
+      setError(
+        "This project does not have a real FFE session yet. Create a new project to use the live finetuning path.",
+      );
+      return;
+    }
+
     setPhase("submitting");
     setSubmit("encrypting");
-    await new Promise((r) => setTimeout(r, 1100));
-    setSubmit("uploading");
-    await new Promise((r) => setTimeout(r, 1100));
-    setSubmit("submitted");
+    setError(null);
 
-    // Mark current user's contribution as uploaded in the store.
-    if (user) {
-      const p = projectStore.get(projectId);
+    try {
+      const payloadFiles = await filesToFfePayload(files);
+      setSubmit("uploading");
+      const receipt = await submitFfeContribution({
+        projectId,
+        sessionId: chainSession.sessionId,
+        contributor: {
+          id: user?.id ?? "anonymous",
+          name: user?.displayName ?? "Contributor",
+        },
+        usableCount: report.usableCount,
+        files: payloadFiles,
+      });
+      setSubmit("submitted");
+
       if (p) {
         const updated = p.contributors.map((c) =>
-          c.id === user.id
+          user && c.id === user.id
             ? { ...c, status: "uploaded" as const, exampleCount: report.usableCount }
             : c,
         );
-        projectStore.update(projectId, { contributors: updated });
+        const alreadyUploaded = updated.some((c) => c.status === "uploaded");
+        projectStore.update(projectId, {
+          contributors: updated,
+          stage: alreadyUploaded ? "training" : p.stage,
+          submissionReceipts: [...(p.submissionReceipts ?? []), receipt],
+        });
       }
-    }
 
-    await new Promise((r) => setTimeout(r, 600));
-    setPhase("done");
+      await new Promise((r) => setTimeout(r, 600));
+      setPhase("done");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not submit this contribution.");
+      setSubmit("idle");
+      setPhase("review");
+    }
   }
 
   if (phase === "idle") {
@@ -231,14 +262,21 @@ function UploadFlow({ projectId }: { projectId: string }) {
 
           <div className="border-border bg-surface flex flex-col items-center justify-between gap-3 rounded-[var(--radius-lg)] border p-4 sm:flex-row">
             <p className="text-foreground-muted text-xs leading-relaxed">
-              Submitting will encrypt your data in this browser and upload only the ciphertext.
-              Plaintext never leaves your machine.
+              Submitting sends this cleaned export through the live FFE bridge, encrypts it for the
+              aggregator, uploads the ciphertext to 0G Storage, and commits the hash on-chain.
             </p>
             <Button onClick={handleSubmit} size="lg">
               <Lock className="h-4 w-4" />
               Encrypt and submit
             </Button>
           </div>
+
+          {error && (
+            <div className="border-status-danger/20 text-status-danger flex items-start gap-2 rounded-[var(--radius-md)] border bg-[var(--status-danger-bg)] p-3 text-sm">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>{error}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -250,9 +288,8 @@ function UploadFlow({ projectId }: { projectId: string }) {
               <div>
                 <h3 className="font-serif text-3xl tracking-tight">Submitted.</h3>
                 <p className="text-foreground-muted mt-1 max-w-md text-sm leading-relaxed">
-                  Your contribution is in the queue. You&apos;ll get a notification when training
-                  completes — and a personal receipt showing your data was included in the shared
-                  improvement.
+                  Your contribution is on-chain and in the aggregator queue. Training starts once
+                  quorum is reached for the session.
                 </p>
               </div>
               <div className="flex items-center gap-2">

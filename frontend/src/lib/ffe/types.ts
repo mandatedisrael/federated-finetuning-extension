@@ -1,0 +1,62 @@
+export interface FfeApiErrorBody {
+  error: string;
+  details?: string;
+}
+
+export interface CreateFfeProjectSessionInput {
+  templateId: string;
+  name: string;
+  goal: string;
+  owner: {
+    id: string;
+    name: string;
+    email: string;
+    walletAddress?: string;
+  };
+  invitees: Array<{ identifier: string; role: "owner" | "contributor" }>;
+  deadline: string;
+  stakeUsd: number;
+}
+
+export interface CreateFfeProjectSessionResult {
+  mode: "server-proxy";
+  sessionId: string;
+  baseModel: string;
+  participantAddress: string;
+  participantPubkey: string;
+  participantPrivateKey: string;
+  aggregatorPubkey: string;
+  createTxHash: string;
+  setAggregatorTxHash?: string;
+  createdAt: string;
+}
+
+export interface SubmitFfeContributionFile {
+  name: string;
+  type: string;
+  size: number;
+  text: string;
+}
+
+export interface SubmitFfeContributionInput {
+  projectId: string;
+  sessionId: string;
+  contributor: {
+    id: string;
+    name: string;
+  };
+  usableCount: number;
+  files: SubmitFfeContributionFile[];
+}
+
+export interface SubmitFfeContributionResult {
+  id: string;
+  contributorId: string;
+  contributorName: string;
+  sessionId: string;
+  exampleCount: number;
+  rootHash: string;
+  storageTxHash: string;
+  submitTxHash: string;
+  submittedAt: string;
+}

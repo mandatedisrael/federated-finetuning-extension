@@ -16,6 +16,18 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Live FFE bridge
+
+The frontend now has a server-side bridge for the real SDK path:
+
+- `POST /api/ffe/projects` creates a Coordinator session with `FFE.openSession()`.
+- `POST /api/ffe/contributions` uploads contributor data with `FFE.submit()`.
+
+For this first slice, the API route acts as a server-side proxy participant so private signing keys
+never live in the browser. Set the values in `.env.local.example`, run the aggregator with the same
+Coordinator/INFT/storage settings, and enable `USE_REAL_0G_TRAINING=true` in the aggregator when you
+want the quorum event to trigger the real 0G fine-tuning service.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

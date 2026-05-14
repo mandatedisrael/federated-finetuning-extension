@@ -153,7 +153,7 @@ export default function ProjectDashboardPage() {
     const id = params.id;
     const p = projectStore.get(id) ?? ensureDemoProject(id);
     // demo polish: seed contributor statuses the first time
-    if (p.contributors.every((c) => c.status === "not-started")) {
+    if (!p.chainSession && p.contributors.every((c) => c.status === "not-started")) {
       seedSampleProgress(p.id);
     }
     setProject(projectStore.get(id) ?? null);
@@ -209,7 +209,11 @@ export default function ProjectDashboardPage() {
             <Badge>Contributor</Badge>
           )}
           {isOwner && <ProjectSettingsButton project={project} onUpdate={(p) => setProject(p)} />}
-          <div className="flex items-center gap-3"><TrustBadge /><UserPill /></div>        </div>
+          <div className="flex items-center gap-3">
+            <TrustBadge />
+            <UserPill />
+          </div>{" "}
+        </div>
       </header>
 
       <section className="mx-auto w-full max-w-4xl px-6 py-10">
@@ -302,7 +306,7 @@ export default function ProjectDashboardPage() {
         <section className="border-border bg-surface mt-6 rounded-[var(--radius-lg)] border p-6">
           <div className="mb-4 flex items-center justify-between gap-2">
             <h2 className="text-sm font-medium tracking-tight">Progress</h2>
-            {isOwner && (
+            {isOwner && !project.chainSession && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -321,6 +325,23 @@ export default function ProjectDashboardPage() {
             )}
           </div>
           <ProgressBar stage={project.stage} />
+
+          {project.chainSession && (
+            <div className="border-border bg-surface-muted/40 mt-5 grid gap-3 rounded-[var(--radius-md)] border p-4 text-xs sm:grid-cols-3">
+              <div>
+                <p className="text-foreground-subtle tracking-widest uppercase">FFE session</p>
+                <p className="text-foreground mt-1 font-mono">#{project.chainSession.sessionId}</p>
+              </div>
+              <div>
+                <p className="text-foreground-subtle tracking-widest uppercase">Base model</p>
+                <p className="text-foreground mt-1 truncate">{project.chainSession.baseModel}</p>
+              </div>
+              <div>
+                <p className="text-foreground-subtle tracking-widest uppercase">Mode</p>
+                <p className="text-foreground mt-1">Live server bridge</p>
+              </div>
+            </div>
+          )}
 
           {(() => {
             const uploaded = project.contributors.filter((c) => c.status !== "not-started").length;

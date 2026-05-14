@@ -61,7 +61,11 @@ function ProjectCreatedInner() {
         <Link href="/" className="font-serif text-xl tracking-tight">
           FFE<span className="text-foreground-subtle">.</span>
         </Link>
-        <div className="flex items-center gap-3"><TrustBadge /><UserPill /></div>      </header>
+        <div className="flex items-center gap-3">
+          <TrustBadge />
+          <UserPill />
+        </div>{" "}
+      </header>
 
       <section className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-6 py-16">
         <motion.div
@@ -131,6 +135,7 @@ function ProjectCreatedInner() {
         >
           <p className="text-foreground-subtle text-xs">
             Deadline: {project.deadline} · Deposit: ${project.stakeUsd} per contributor
+            {project.chainSession ? ` · FFE session #${project.chainSession.sessionId}` : ""}
           </p>
           <Button asChild>
             <Link href={`/p/${project.id}`}>

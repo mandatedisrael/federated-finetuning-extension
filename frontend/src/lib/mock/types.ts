@@ -35,6 +35,7 @@ export interface Contributor {
   status: ContributionStatus;
   exampleCount: number;
   avatarUrl?: string;
+  walletAddress?: string;
 }
 
 export interface MustPassScenario {
@@ -72,4 +73,31 @@ export interface Project {
   mustPass: MustPassScenario[];
   versions: ProjectVersion[];
   createdAt: string;
+  chainSession?: ProjectChainSession;
+  submissionReceipts?: ProjectSubmissionReceipt[];
+}
+
+export interface ProjectChainSession {
+  mode: "server-proxy";
+  sessionId: string;
+  baseModel: string;
+  participantAddress: string;
+  participantPubkey: string;
+  participantPrivateKey: string;
+  aggregatorPubkey: string;
+  createTxHash: string;
+  setAggregatorTxHash?: string;
+  createdAt: string;
+}
+
+export interface ProjectSubmissionReceipt {
+  id: string;
+  contributorId: string;
+  contributorName: string;
+  sessionId: string;
+  exampleCount: number;
+  rootHash: string;
+  storageTxHash: string;
+  submitTxHash: string;
+  submittedAt: string;
 }

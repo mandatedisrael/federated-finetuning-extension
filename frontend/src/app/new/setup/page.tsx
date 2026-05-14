@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { Plus, X, Calendar } from "lucide-react";
+import { AlertCircle, Plus, X, Calendar } from "lucide-react";
 import { WizardShell, type WizardStep } from "@/components/wizard/WizardShell";
 import { Textarea } from "@/components/ui/Textarea";
 import { Input } from "@/components/ui/Input";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { getTemplate } from "@/lib/mock/templates";
 import { projectStore } from "@/lib/mock/projectStore";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { createFfeProjectSession } from "@/lib/ffe/client";
 import type { Role } from "@/lib/mock/types";
 
 interface Invitee {
@@ -84,6 +85,7 @@ function SetupWizardInner() {
   const templateId = params.get("template") ?? "customer-support";
   const template = getTemplate(templateId);
   const [creating, setCreating] = React.useState(false);
+  const [creationError, setCreationError] = React.useState<string | null>(null);
 
   const [state, setState] = React.useState<WizardState>({
     goal: template?.goal ?? "",
@@ -339,6 +341,13 @@ function SetupWizardInner() {
               </motion.div>
             )}
           </div>
+
+          {creationError && (
+            <div className="border-status-danger/20 text-status-danger flex items-start gap-2 rounded-[var(--radius-md)] border bg-[var(--status-danger-bg)] p-3 text-sm">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>{creationError}</p>
+            </div>
+          )}
         </div>
       ),
     },
@@ -350,19 +359,44 @@ function SetupWizardInner() {
       return;
     }
     setCreating(true);
-    await new Promise((r) => setTimeout(r, 350));
-    const project = projectStore.create({
-      templateId,
-      name: template?.name ?? "Untitled project",
-      goal: state.goal.trim(),
-      ownerId: user.id,
-      ownerName: user.displayName,
-      ownerEmail: user.email,
-      invitees: validInvitees.map((i) => ({ identifier: i.identifier.trim(), role: i.role })),
-      deadline: state.deadline,
-      stakeUsd: state.stakeUsd,
-    });
-    router.push(`/new/done?id=${project.id}`);
+    setCreationError(null);
+
+    try {
+      const invitees = validInvitees.map((i) => ({
+        identifier: i.identifier.trim(),
+        role: i.role,
+      }));
+      const chainSession = await createFfeProjectSession({
+        templateId,
+        name: template?.name ?? "Untitled project",
+        goal: state.goal.trim(),
+        owner: {
+          id: user.id,
+          name: user.displayName,
+          email: user.email,
+          walletAddress: user.walletAddress,
+        },
+        invitees,
+        deadline: state.deadline,
+        stakeUsd: state.stakeUsd,
+      });
+      const project = projectStore.create({
+        templateId,
+        name: template?.name ?? "Untitled project",
+        goal: state.goal.trim(),
+        ownerId: user.id,
+        ownerName: user.displayName,
+        ownerEmail: user.email,
+        invitees,
+        deadline: state.deadline,
+        stakeUsd: state.stakeUsd,
+      });
+      projectStore.update(project.id, { chainSession });
+      router.push(`/new/done?id=${project.id}`);
+    } catch (err) {
+      setCreationError(err instanceof Error ? err.message : "Could not create the FFE session.");
+      setCreating(false);
+    }
   }
 
   function handleNext() {
@@ -381,6 +415,7 @@ function SetupWizardInner() {
       onNext={handleNext}
       onCancel={() => router.push("/new")}
       busy={creating}
+      finishLabel={creating ? "Creating on 0G…" : "Create project"}
     />
   );
 }
