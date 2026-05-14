@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowLeft, Check, Sparkles, ThumbsDown, ThumbsUp, Minus } from "lucide-react";
 import { TrustBadge } from "@/components/domain/TrustBadge";
+import { UserPill } from "@/components/auth/UserPill";
 import {
   SideBySideChat,
   type ChatMessage,
@@ -254,7 +255,7 @@ export default function ResultPlaygroundPage() {
 
   return (
     <main className="relative flex flex-1 flex-col">
-      <header className="border-border mx-auto flex w-full max-w-6xl items-center justify-between border-b px-6 py-4">
+      <header className="border-border mx-auto flex w-full max-w-7xl items-center justify-between border-b px-6 py-4">
         <div className="flex items-center gap-3">
           <Link href="/" className="font-serif text-lg tracking-tight">
             FFE<span className="text-foreground-subtle">.</span>
@@ -269,10 +270,9 @@ export default function ResultPlaygroundPage() {
           <span className="text-foreground-subtle text-xs">/</span>
           <span className="text-foreground-muted truncate text-sm">Playground</span>
         </div>
-        <TrustBadge />
-      </header>
+        <div className="flex items-center gap-3"><TrustBadge /><UserPill /></div>      </header>
 
-      <section className="mx-auto w-full max-w-6xl px-6 py-10">
+      <section className="mx-auto w-full max-w-7xl px-6 py-10">
         <Link
           href={`/p/${project.id}`}
           className="text-foreground-subtle hover:text-foreground mb-6 inline-flex items-center gap-1 text-xs"

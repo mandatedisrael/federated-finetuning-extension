@@ -8,6 +8,7 @@ import { ArrowLeft } from "lucide-react";
 import { TemplateCard } from "@/components/templates/TemplateCard";
 import { Button } from "@/components/ui/Button";
 import { TrustBadge } from "@/components/domain/TrustBadge";
+import { UserPill } from "@/components/auth/UserPill";
 import { TEMPLATES } from "@/lib/mock/templates";
 
 export default function NewProjectPage() {
@@ -19,12 +20,11 @@ export default function NewProjectPage() {
 
   return (
     <main className="relative flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 pt-6">
+      <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 pt-6">
         <Link href="/" className="font-serif text-xl tracking-tight">
           FFE<span className="text-foreground-subtle">.</span>
         </Link>
-        <TrustBadge />
-      </header>
+        <div className="flex items-center gap-3"><TrustBadge /><UserPill /></div>      </header>
 
       <section className="mx-auto w-full max-w-5xl px-6 py-12">
         <motion.div

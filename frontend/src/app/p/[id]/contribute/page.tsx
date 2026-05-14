@@ -7,6 +7,7 @@ import { motion } from "motion/react";
 import { ArrowLeft, Calendar, ShieldCheck, Upload, Pencil } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { TrustBadge } from "@/components/domain/TrustBadge";
+import { UserPill } from "@/components/auth/UserPill";
 import { StatusChip } from "@/components/domain/StatusChip";
 import { Badge } from "@/components/ui/Badge";
 import { UploadZone } from "@/components/contribute/UploadZone";
@@ -46,7 +47,7 @@ export default function ContributePage() {
     : project.contributors.find((c) => c.role !== "owner");
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-6">
+    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 py-6">
       <header className="mb-6 flex items-center justify-between">
         <Link
           href={`/p/${project.id}`}
@@ -55,7 +56,10 @@ export default function ContributePage() {
           <ArrowLeft className="h-4 w-4" />
           Back to project
         </Link>
-        <TrustBadge variant="active" />
+        <div className="flex items-center gap-3">
+          <TrustBadge variant="active" />
+          <UserPill />
+        </div>
       </header>
 
       <div className="flex flex-1 flex-col gap-6 lg:flex-row">

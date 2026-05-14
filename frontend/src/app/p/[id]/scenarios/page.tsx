@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { ArrowLeft, Plus, Pencil, Trash2, Check, X, ShieldCheck } from "lucide-react";
 import { TrustBadge } from "@/components/domain/TrustBadge";
+import { UserPill } from "@/components/auth/UserPill";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { Label } from "@/components/ui/Label";
@@ -169,7 +170,7 @@ export default function MustPassScenariosPage() {
 
   return (
     <main className="relative flex flex-1 flex-col">
-      <header className="border-border mx-auto flex w-full max-w-6xl items-center justify-between border-b px-6 py-4">
+      <header className="border-border mx-auto flex w-full max-w-7xl items-center justify-between border-b px-6 py-4">
         <div className="flex items-center gap-3">
           <Link href="/" className="font-serif text-lg tracking-tight">
             FFE<span className="text-foreground-subtle">.</span>
@@ -184,8 +185,7 @@ export default function MustPassScenariosPage() {
           <span className="text-foreground-subtle text-xs">/</span>
           <span className="text-foreground-muted truncate text-sm">Must-Pass</span>
         </div>
-        <TrustBadge />
-      </header>
+        <div className="flex items-center gap-3"><TrustBadge /><UserPill /></div>      </header>
 
       <section className="mx-auto w-full max-w-3xl px-6 py-10">
         <button
