@@ -1,6 +1,6 @@
 /**
  * Training bridge for the Aggregator.
- * Uses 0g-compute-cli for real fine-tuning or simulates TEE for demo/dev.
+ * Uses the real 0G fine-tuning path, with a local simulation fallback for tests.
  */
 
 import {readFile, writeFile, rm} from "fs/promises";
@@ -255,7 +255,7 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
 }
 
 // ---------------------------------------------------------------------------
-// Simulation path (TEE demo / dev mode)
+// Simulation path (local test mode)
 // ---------------------------------------------------------------------------
 
 async function simulateTraining(options: TrainingBridgeOptions): Promise<{

@@ -7,10 +7,10 @@ into a multi-contributor workflow: several parties encrypt datasets to an
 aggregator, the aggregator trains one shared LoRA, and the result is minted as
 an INFT with a sealed decryption key for each contributor.
 
-The current repo includes a two-contributor end-to-end runner behind
-`pnpm start`. It creates an on-chain FFE session, submits encrypted datasets,
-runs the aggregator, calls real 0G fine-tuning, mints an INFT, and
-verifies both contributors decrypt the same LoRA bytes.
+The current repo runs the real aggregator as a backend service. The frontend
+creates sessions, sends contributor invites, and collects Privy wallet
+submissions; the aggregator watches for quorum, trains through 0G fine-tuning,
+and mints the encrypted INFT result.
 
 ---
 
@@ -60,7 +60,7 @@ Implemented:
 - INFT minter contract with per-contributor sealed keys
 - Aggregator pipeline: listen for quorum, fetch/decrypt blobs, train, encrypt, mint
 - Local storage fallback for dev/live runs when 0G Storage is unavailable
-- Two-contributor runner in `aggregator/src/run.ts`, launched by `pnpm start`
+- Frontend-backed aggregator service in `aggregator/src/start.ts`
 
 Not yet implemented:
 
@@ -111,7 +111,7 @@ Contributor C  -> encrypt JSONL_C to aggregator pubkey -> 0G Storage
 |---|---|
 | `sdk/` | `@notmartin/ffe` SDK: crypto, storage, coordinator, INFT, `FFE` client |
 | `contracts/` | Solidity Coordinator and INFT minter contracts |
-| `aggregator/` | Event listener, blob processor, training bridge, minter, live runner |
+| `aggregator/` | Event listener, blob processor, training bridge, minter, service runner |
 | `docs/diagrams/` | Before/after architecture images |
 
 ---
@@ -138,8 +138,6 @@ cp .env.example .env
 Fill in `aggregator/.env`:
 
 ```bash
-FFE_LIVE_WALLET_1=0x...
-FFE_LIVE_WALLET_2=0x...
 AGG_EVM_KEY=0x...
 AGG_X25519_KEY=...
 
@@ -160,16 +158,15 @@ CLI command and do not commit `.env`.
 
 ### 3. Fund the live accounts
 
-The start command uses three wallets:
+The frontend-backed flow uses wallet signing in two places:
 
-- contributor 1: pays for session creation and its submit transaction
-- contributor 2: pays for its submit transaction
-- aggregator: pays for fine-tuning/minting/storage-related transactions
+- project owners and contributors connect with Privy in the frontend
+- the aggregator wallet pays for fine-tuning, minting, and related backend transactions
 
-All three need OG on the target 0G network. `pnpm start` performs a preflight
-balance check and stops before sending transactions if any account has no OG.
+The aggregator wallet in `AGG_EVM_KEY` needs OG on the target 0G network.
+Frontend users need OG in their connected wallets when they submit on-chain.
 
-### 4. Run the real live FFE flow
+### 4. Run the aggregator service
 
 ```bash
 cd aggregator
@@ -179,15 +176,12 @@ pnpm start
 What this does:
 
 1. Loads `aggregator/.env`
-2. Forces `USE_REAL_0G_TRAINING=true`
-3. Checks contributor and aggregator balances
-4. Creates a live on-chain FFE session
-5. Submits encrypted JSONL from contributor 1 and contributor 2
-6. Starts the aggregator
-7. Runs real 0G fine-tuning
-8. Mints an INFT with one sealed key per contributor
-9. Downloads as both contributors and verifies identical LoRA bytes
-10. Writes the LoRA to `aggregator/output/ffe-live-lora-session-<id>.bin`
+2. Starts the aggregator event listener
+3. Watches Coordinator sessions for quorum
+4. Downloads and decrypts submitted blobs from 0G Storage
+5. Runs real 0G fine-tuning
+6. Uploads the encrypted LoRA artifact
+7. Mints an INFT with one sealed key per contributor
 
 ### Useful Commands
 
@@ -198,10 +192,6 @@ pnpm --filter @notmartin/ffe-aggregator typecheck
 # Run aggregator tests
 pnpm --filter @notmartin/ffe-aggregator test
 
-# Run only the simple live test suite
-cd aggregator
-pnpm run test:live:simple
-
 # Generate a fresh aggregator X25519 keypair
 cd aggregator
 pnpm keygen
@@ -209,23 +199,23 @@ pnpm keygen
 
 ---
 
-## Live Runner Details
+## Aggregator Service Details
 
-`aggregator/src/run.ts` is the canonical runner and is invoked by `pnpm start`.
+`aggregator/src/start.ts` is the canonical backend service entrypoint and is
+invoked by `pnpm start` or `pnpm service`.
 
-It creates ephemeral contributor X25519 keys for the run. Those public keys are
-registered in the session and later used by the aggregator to seal the LoRA AES
-key. The contributor EVM private keys are only used to pay for and sign chain
-transactions.
+The frontend registers contributor wallets and FFE public keys when users join
+with Privy. The owner starts the Coordinator session from the dashboard, and
+contributors submit with their connected wallets.
 
 The aggregator X25519 key is long-lived and comes from `AGG_X25519_KEY`. Its
 derived public key is published in the session so contributors can encrypt their
 datasets before upload.
 
-During `pnpm start`, the runner starts the aggregator in the same process after
-both contributors submit. The aggregator decrypts the submitted blobs with
-`AGG_X25519_KEY`, combines the JSONL, and uses the real 0G fine-tuning path in
-`trainingBridge.ts`, signing the fine-tuning request with `AGG_EVM_KEY`.
+During `pnpm start`, the service polls for quorum sessions. When quorum is
+reached, it decrypts submitted blobs with `AGG_X25519_KEY`, combines the JSONL,
+and uses the real 0G fine-tuning path in `trainingBridge.ts`, signing the
+fine-tuning request with `AGG_EVM_KEY`.
 
 ---
 
@@ -252,7 +242,7 @@ both contributors submit. The aggregator decrypts the submitted blobs with
 
 ## Contract Deployments
 
-Current live runner defaults:
+Current service defaults:
 
 | Contract | Network | Address |
 |---|---|---|
@@ -283,8 +273,8 @@ Then set `INFT_ADDRESS` in your `aggregator/.env` to the newly deployed address.
 ```text
 FFE/
 ├── aggregator/
-│   ├── src/run.ts              # two-contributor FFE run used by pnpm start
 │   ├── src/
+│   │   ├── start.ts            # aggregator service entrypoint
 │   │   ├── blobProcessor.ts    # fetch/decrypt contributor blobs
 │   │   ├── eventListener.ts    # poll Coordinator for quorum sessions
 │   │   ├── trainingBridge.ts   # TEE simulation or real 0G fine-tuning
@@ -315,7 +305,7 @@ FFE/
 - Multi-owner encrypted output
 - Optional real 0G fine-tuning integration
 - TEE/Tapp attestation hardening
-- SDK + reference aggregator + start command
+- SDK + frontend-backed aggregator service
 
 ### v2
 

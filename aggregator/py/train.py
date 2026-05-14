@@ -3,9 +3,9 @@
 FFE Aggregator — LoRA fine-tuning bridge.
 Reads JSONL training data and fine-tunes via the 0G fine-tuning service.
 
-TEE mode: when USE_REAL_0G_TRAINING is not set the script runs a simulation
+Local mode: when USE_REAL_0G_TRAINING is not set the script runs a simulation
 that mimics the real flow (data loading → training config → epoch loop →
-adapter export) and emits a mock TEE attestation quote. Suitable for demos.
+adapter export) and emits a mock TEE attestation quote for tests.
 """
 
 import argparse
@@ -37,7 +37,7 @@ def load_jsonl(path: str) -> list:
 
 
 # ---------------------------------------------------------------------------
-# TEE attestation (mock for dev / demo)
+# TEE attestation (mock for local tests)
 # ---------------------------------------------------------------------------
 
 def mock_tee_attestation(session_id: str, adapter_hash: str) -> dict:
@@ -46,7 +46,7 @@ def mock_tee_attestation(session_id: str, adapter_hash: str) -> dict:
 
     In production this would call into the Tapp runtime to generate a real
     Intel TDX / SGX quote that commits to the enclave measurement, the
-    session ID, and the adapter hash.  For the demo we produce a
+    session ID, and the adapter hash. For local tests we produce a
     deterministic stand-in with the same JSON shape so downstream verifiers
     can be wired up without code changes.
     """
@@ -117,12 +117,12 @@ def fine_tune_with_0g_service(jsonl_path: str, base_model: str, session_id: str)
 
 
 # ---------------------------------------------------------------------------
-# Training — simulated path (TEE demo mode)
+# Training — simulated path (local test mode)
 # ---------------------------------------------------------------------------
 
 def simulate_training(jsonl_path: str, base_model: str, session_id: str) -> dict:
     """
-    Simulate LoRA training inside the TEE for demo purposes.
+    Simulate LoRA training inside the TEE for local test runs.
     Emits realistic progress to stderr so observers can follow along.
     """
     records = load_jsonl(jsonl_path)
