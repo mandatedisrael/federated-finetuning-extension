@@ -150,10 +150,10 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 69. `feat(notify): add email transition templates`
 
 ### Phase 14 — Responsive & polish
-- [ ] 70. `feat(mobile): make dashboard, playground, and notifications responsive`
-- [ ] 71. `feat(motion): polish wizard transitions and stage advance`
-- [ ] 72. `feat(motion): add confetti-once on publish success`
-- [ ] 73. `chore: lighthouse and a11y pass`
+- [x] 70. `feat(mobile): make dashboard, playground, and notifications responsive`
+- [x] 71. `feat(motion): polish wizard transitions and stage advance`
+- [x] 72. `feat(motion): add confetti-once on publish success`
+- [x] 73. `chore: lighthouse and a11y pass`
 
 ---
 

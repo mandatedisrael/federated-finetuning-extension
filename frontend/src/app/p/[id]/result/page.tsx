@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/Badge";
 import { MetricCard } from "@/components/domain/MetricCard";
 import { AvatarStack } from "@/components/domain/AvatarStack";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { usePageTitle } from "@/lib/a11y/usePageTitle";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject, seedMustPassResults } from "@/lib/mock/seedDemo";
 import { streamMockReply, type MockStream } from "@/lib/mock/mockChat";
@@ -69,7 +70,7 @@ function VoteCard({
             <span className="text-foreground-subtle">For:</span> {comparison.prompt}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <Button
             variant={comparison.vote === "left" ? "primary" : "secondary"}
             size="sm"
@@ -147,6 +148,8 @@ export default function ResultPlaygroundPage() {
   const [busy, setBusy] = React.useState(false);
   const [comparisons, setComparisons] = React.useState<Comparison[]>([]);
   const streamsRef = React.useRef<MockStream[]>([]);
+
+  usePageTitle(project ? `Playground · ${project.name}` : "Playground");
 
   function recordVote(comparisonId: string, vote: Vote) {
     setComparisons((prev) =>

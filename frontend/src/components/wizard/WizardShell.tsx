@@ -56,16 +56,53 @@ export function WizardShell({
             const state = i < currentIndex ? "done" : i === currentIndex ? "active" : "pending";
             return (
               <li key={s.id} className="flex flex-1 items-center gap-2">
-                <span
+                <motion.span
+                  layout
+                  initial={false}
+                  animate={
+                    state === "active"
+                      ? { scale: [1, 1.18, 1] }
+                      : state === "done"
+                        ? { scale: 1 }
+                        : { scale: 1 }
+                  }
+                  transition={{
+                    duration: 0.45,
+                    ease: [0.16, 1, 0.3, 1],
+                    times: state === "active" ? [0, 0.55, 1] : undefined,
+                  }}
                   className={cn(
                     "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-medium",
+                    "transition-colors duration-300",
                     state === "done" && "bg-accent text-accent-foreground",
                     state === "active" && "ring-accent/40 bg-accent-soft text-accent ring-2",
                     state === "pending" && "bg-surface-muted text-foreground-subtle",
                   )}
                 >
-                  {state === "done" ? <Check className="h-3 w-3" /> : i + 1}
-                </span>
+                  <AnimatePresence mode="wait" initial={false}>
+                    {state === "done" ? (
+                      <motion.span
+                        key="check"
+                        initial={{ opacity: 0, scale: 0.6 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.6 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <Check className="h-3 w-3" />
+                      </motion.span>
+                    ) : (
+                      <motion.span
+                        key={`num-${i}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        {i + 1}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </motion.span>
                 <span
                   className={cn(
                     "hidden truncate text-xs tracking-tight sm:inline",

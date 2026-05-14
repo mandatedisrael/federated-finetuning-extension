@@ -18,6 +18,7 @@ import { AvatarStack } from "@/components/domain/AvatarStack";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { usePageTitle } from "@/lib/a11y/usePageTitle";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject, seedDemoVersions } from "@/lib/mock/seedDemo";
 import type { Project, ProjectVersion } from "@/lib/mock/types";
@@ -226,6 +227,8 @@ export default function VersionsPage() {
   const params = useParams<{ id: string }>();
   const { user } = useAuth();
   const [project, setProject] = React.useState<Project | null>(null);
+
+  usePageTitle("Versions");
 
   React.useEffect(() => {
     if (!params?.id) return;

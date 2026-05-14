@@ -18,7 +18,9 @@ import { TrustBadge } from "@/components/domain/TrustBadge";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { AvatarStack } from "@/components/domain/AvatarStack";
+import { Confetti } from "@/components/domain/Confetti";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { usePageTitle } from "@/lib/a11y/usePageTitle";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject, seedMustPassResults } from "@/lib/mock/seedDemo";
 import type { Project, ProjectVersion } from "@/lib/mock/types";
@@ -145,6 +147,8 @@ export default function PublishPage() {
   const [project, setProject] = React.useState<Project | null>(null);
   const [override, setOverride] = React.useState(false);
   const [justPublished, setJustPublished] = React.useState(false);
+
+  usePageTitle(justPublished ? "Published" : "Publish");
 
   React.useEffect(() => {
     if (!params?.id) return;
@@ -392,6 +396,7 @@ export default function PublishPage() {
           )}
         </AnimatePresence>
       </section>
+      {justPublished && <Confetti />}
     </main>
   );
 }

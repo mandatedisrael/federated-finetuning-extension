@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { usePageTitle } from "@/lib/a11y/usePageTitle";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject, seedSampleProgress } from "@/lib/mock/seedDemo";
 import { getTemplate } from "@/lib/mock/templates";
@@ -143,6 +144,8 @@ export default function ProjectDashboardPage() {
   const params = useParams<{ id: string }>();
   const { user } = useAuth();
   const [project, setProject] = React.useState<Project | null>(null);
+
+  usePageTitle(project?.name ?? "Project");
 
   React.useEffect(() => {
     if (!params?.id) return;

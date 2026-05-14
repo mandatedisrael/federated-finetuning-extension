@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Label } from "@/components/ui/Label";
 import { Badge } from "@/components/ui/Badge";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { usePageTitle } from "@/lib/a11y/usePageTitle";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject } from "@/lib/mock/seedDemo";
 import type { Project, MustPassScenario } from "@/lib/mock/types";
@@ -102,6 +103,8 @@ export default function MustPassScenariosPage() {
   const [project, setProject] = React.useState<Project | null>(null);
   const [adding, setAdding] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
+
+  usePageTitle("Must-Pass Scenarios");
 
   React.useEffect(() => {
     if (!params?.id) return;
