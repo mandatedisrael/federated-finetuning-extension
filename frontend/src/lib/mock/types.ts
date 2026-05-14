@@ -78,7 +78,7 @@ export interface Project {
 }
 
 export interface ProjectChainSession {
-  mode: "server-proxy";
+  mode: "server-proxy" | "wallet-owner";
   sessionId: string;
   baseModel: string;
   participantAddress: string;

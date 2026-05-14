@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useWallets } from "@privy-io/react-auth";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
@@ -20,7 +21,8 @@ import { SubmitStateMachine, type SubmitPhase } from "@/components/contribute/Su
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject } from "@/lib/mock/seedDemo";
-import { filesToFfePayload, submitFfeContribution } from "@/lib/ffe/client";
+import { filesToFfePayload, prepareFfeContribution, submitFfeContribution } from "@/lib/ffe/client";
+import { submitPreparedContributionWithWallet } from "@/lib/ffe/walletSubmit";
 import type { Project } from "@/lib/mock/types";
 
 export default function ContributePage() {
@@ -132,6 +134,7 @@ type UploadPhase = "idle" | "scanning" | "review" | "submitting" | "done";
 
 function UploadFlow({ projectId }: { projectId: string }) {
   const { user } = useAuth();
+  const { wallets } = useWallets();
   const [files, setFiles] = React.useState<File[]>([]);
   const [phase, setPhase] = React.useState<UploadPhase>("idle");
   const [report, setReport] = React.useState<ConciergeReport | null>(null);
@@ -173,16 +176,42 @@ function UploadFlow({ projectId }: { projectId: string }) {
     try {
       const payloadFiles = await filesToFfePayload(files);
       setSubmit("uploading");
-      const receipt = await submitFfeContribution({
-        projectId,
-        sessionId: chainSession.sessionId,
-        contributor: {
-          id: user?.id ?? "anonymous",
-          name: user?.displayName ?? "Contributor",
-        },
-        usableCount: report.usableCount,
-        files: payloadFiles,
-      });
+      const contributor = {
+        id: user?.id ?? "anonymous",
+        name: user?.displayName ?? "Contributor",
+      };
+      const wallet =
+        chainSession.mode === "wallet-owner"
+          ? wallets.find(
+              (candidate) =>
+                candidate.type === "ethereum" &&
+                candidate.address.toLowerCase() === chainSession.participantAddress.toLowerCase(),
+            )
+          : undefined;
+      if (chainSession.mode === "wallet-owner" && !wallet) {
+        throw new Error(
+          "Connect the wallet that owns this FFE session before submitting this contribution.",
+        );
+      }
+      const receipt = wallet
+        ? await submitPreparedContributionWithWallet({
+            provider: await wallet.getEthereumProvider(),
+            from: wallet.address,
+            prepared: await prepareFfeContribution({
+              projectId,
+              sessionId: chainSession.sessionId,
+              contributor,
+              usableCount: report.usableCount,
+              files: payloadFiles,
+            }),
+          })
+        : await submitFfeContribution({
+            projectId,
+            sessionId: chainSession.sessionId,
+            contributor,
+            usableCount: report.usableCount,
+            files: payloadFiles,
+          });
       setSubmit("submitted");
 
       if (p) {

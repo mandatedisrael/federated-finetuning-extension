@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@noble/curves": "^1.9.7",
     "@notmartin/ffe": "workspace:*",
     "@privy-io/react-auth": "^3.25.0",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -27,7 +28,8 @@
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "viem": "^2.48.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

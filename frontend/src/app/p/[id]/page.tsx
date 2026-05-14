@@ -361,7 +361,11 @@ export default function ProjectDashboardPage() {
               </div>
               <div>
                 <p className="text-foreground-subtle tracking-widest uppercase">Mode</p>
-                <p className="text-foreground mt-1">Live server bridge</p>
+                <p className="text-foreground mt-1">
+                  {project.chainSession.mode === "wallet-owner"
+                    ? "Wallet-owned submit"
+                    : "Live server bridge"}
+                </p>
               </div>
               {sessionStatus && (
                 <div>

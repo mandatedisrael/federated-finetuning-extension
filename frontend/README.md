@@ -22,10 +22,14 @@ The frontend now has a server-side bridge for the real SDK path:
 
 - `POST /api/ffe/projects` creates a Coordinator session with `FFE.openSession()`.
 - `POST /api/ffe/contributions` uploads contributor data with `FFE.submit()`.
+- `POST /api/ffe/contributions/prepare` encrypts and uploads data, then returns a storage root
+  for browser wallet submission.
 - `GET /api/ffe/sessions/[sessionId]` reads Coordinator status for live dashboard progress.
 
-For this first slice, the API route acts as a server-side proxy participant so private signing keys
-never live in the browser. Set the values in `.env.local.example`, run the aggregator with the same
+New projects prefer `wallet-owner` mode when Privy exposes a connected Ethereum wallet: the server
+creates the session, but the browser wallet signs `Coordinator.submit()` after the server prepares
+the encrypted 0G Storage payload. Projects created without a connected wallet still use the
+`server-proxy` fallback. Set the values in `.env.local.example`, run the aggregator with the same
 Coordinator/INFT/storage settings, and enable `USE_REAL_0G_TRAINING=true` in the aggregator when you
 want the quorum event to trigger the real 0G fine-tuning service.
 

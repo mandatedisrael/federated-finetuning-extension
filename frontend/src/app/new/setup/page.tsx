@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useWallets } from "@privy-io/react-auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { AlertCircle, Plus, X, Calendar } from "lucide-react";
@@ -14,6 +15,7 @@ import { getTemplate } from "@/lib/mock/templates";
 import { projectStore } from "@/lib/mock/projectStore";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createFfeProjectSession } from "@/lib/ffe/client";
+import { createBrowserFfeKeyPair } from "@/lib/ffe/keys";
 import type { Role } from "@/lib/mock/types";
 
 interface Invitee {
@@ -82,6 +84,7 @@ function SetupWizardInner() {
   const router = useRouter();
   const params = useSearchParams();
   const { user } = useAuth();
+  const { wallets } = useWallets();
   const templateId = params.get("template") ?? "customer-support";
   const template = getTemplate(templateId);
   const [creating, setCreating] = React.useState(false);
@@ -362,6 +365,13 @@ function SetupWizardInner() {
     setCreationError(null);
 
     try {
+      const ownerWallet = wallets.find(
+        (wallet) =>
+          wallet.type === "ethereum" &&
+          user.walletAddress &&
+          wallet.address.toLowerCase() === user.walletAddress.toLowerCase(),
+      );
+      const ownerKeys = ownerWallet ? createBrowserFfeKeyPair() : null;
       const invitees = validInvitees.map((i) => ({
         identifier: i.identifier.trim(),
         role: i.role,
@@ -379,6 +389,14 @@ function SetupWizardInner() {
         invitees,
         deadline: state.deadline,
         stakeUsd: state.stakeUsd,
+        ownerParticipant:
+          ownerWallet && ownerKeys
+            ? {
+                address: ownerWallet.address,
+                publicKey: ownerKeys.publicKey,
+                privateKey: ownerKeys.privateKey,
+              }
+            : undefined,
       });
       const project = projectStore.create({
         templateId,

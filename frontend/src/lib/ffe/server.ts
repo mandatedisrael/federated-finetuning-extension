@@ -1,8 +1,10 @@
 import { FFE, crypto } from "@notmartin/ffe";
+import { OG_CHAIN } from "@/lib/og/chain";
 import type {
   CreateFfeProjectSessionInput,
   CreateFfeProjectSessionResult,
   FfeSessionStatusResult,
+  PrepareFfeContributionResult,
   SubmitFfeContributionFile,
   SubmitFfeContributionResult,
 } from "./types";
@@ -52,6 +54,21 @@ function hexToBytes(value: string, name: string): Uint8Array {
 
 function bytesToHex(bytes: Uint8Array): `0x${string}` {
   return `0x${Buffer.from(bytes).toString("hex")}`;
+}
+
+function readHexBytes(value: string, name: string): Uint8Array {
+  const bytes = hexToBytes(value, name);
+  if (bytes.length === 0) {
+    throw new Error(`${name} cannot be empty.`);
+  }
+  return bytes;
+}
+
+function normalizeAddress(value: string, name: string): `0x${string}` {
+  if (!/^0x[a-fA-F0-9]{40}$/.test(value)) {
+    throw new Error(`${name} must be a 0x-prefixed EVM address.`);
+  }
+  return value as `0x${string}`;
 }
 
 function loadAggregatorPubkey(): { bytes: Uint8Array; hex: `0x${string}` } {
@@ -110,21 +127,33 @@ export async function createProxySession(
 
   const config = loadFfeServerConfig();
   const ffe = createFfeClient(config);
-  const participant = crypto.generateKeyPair();
+  const ownerParticipant = input.ownerParticipant;
+  const proxyParticipant = crypto.generateKeyPair();
+  const participant = ownerParticipant
+    ? {
+        address: normalizeAddress(ownerParticipant.address, "ownerParticipant.address"),
+        publicKey: readHexBytes(ownerParticipant.publicKey, "ownerParticipant.publicKey"),
+        privateKey: ownerParticipant.privateKey,
+      }
+    : {
+        address: ffe.account,
+        publicKey: proxyParticipant.publicKey,
+        privateKey: bytesToHex(proxyParticipant.privateKey),
+      };
   const result = await ffe.openSession({
     baseModel: config.baseModel,
-    participants: [{ address: ffe.account, publicKey: participant.publicKey }],
+    participants: [{ address: participant.address, publicKey: participant.publicKey }],
     quorum: 1,
     aggregatorPubkey: config.aggregatorPubkey,
   });
 
   return {
-    mode: "server-proxy",
+    mode: ownerParticipant ? "wallet-owner" : "server-proxy",
     sessionId: result.sessionId.toString(),
     baseModel: config.baseModel,
-    participantAddress: ffe.account,
+    participantAddress: participant.address,
     participantPubkey: bytesToHex(participant.publicKey),
-    participantPrivateKey: bytesToHex(participant.privateKey),
+    participantPrivateKey: participant.privateKey,
     aggregatorPubkey: config.aggregatorPubkeyHex,
     createTxHash: result.createTxHash,
     setAggregatorTxHash: result.setAggregatorTxHash,
@@ -213,6 +242,41 @@ export async function submitProxyContribution(input: {
     storageTxHash: result.storageTxHash,
     submitTxHash: result.submitTxHash,
     submittedAt: new Date().toISOString(),
+  };
+}
+
+export async function prepareContribution(input: {
+  sessionId: string;
+  contributor: { id: string; name: string };
+  usableCount: number;
+  files: SubmitFfeContributionFile[];
+}): Promise<PrepareFfeContributionResult> {
+  const sessionId = BigInt(input.sessionId);
+  const ffe = createFfeClient();
+  const session = await ffe.coordinator.getSession(sessionId);
+  if (session.aggregatorPubkey === "0x" || session.aggregatorPubkey.length <= 2) {
+    throw new Error(`session ${input.sessionId} has no aggregator pubkey yet.`);
+  }
+
+  const jsonl = jsonlFromFiles(input.files);
+  const data = new TextEncoder().encode(jsonl);
+  const blob = crypto.encryptToRecipient(
+    data,
+    hexToBytes(session.aggregatorPubkey, "aggregatorPubkey"),
+  );
+  const upload = await ffe.storage.upload(blob.bytes);
+
+  return {
+    id: `sub_${upload.rootHash.slice(2, 10)}`,
+    contributorId: input.contributor.id,
+    contributorName: input.contributor.name,
+    sessionId: input.sessionId,
+    exampleCount: input.usableCount,
+    rootHash: upload.rootHash,
+    storageTxHash: upload.txHash,
+    preparedAt: new Date().toISOString(),
+    coordinatorAddress: ffe.coordinator.address,
+    chainId: OG_CHAIN.id,
   };
 }
 

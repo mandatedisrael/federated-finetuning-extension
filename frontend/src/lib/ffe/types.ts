@@ -16,10 +16,15 @@ export interface CreateFfeProjectSessionInput {
   invitees: Array<{ identifier: string; role: "owner" | "contributor" }>;
   deadline: string;
   stakeUsd: number;
+  ownerParticipant?: {
+    address: string;
+    publicKey: string;
+    privateKey: string;
+  };
 }
 
 export interface CreateFfeProjectSessionResult {
-  mode: "server-proxy";
+  mode: "server-proxy" | "wallet-owner";
   sessionId: string;
   baseModel: string;
   participantAddress: string;
@@ -47,6 +52,30 @@ export interface SubmitFfeContributionInput {
   };
   usableCount: number;
   files: SubmitFfeContributionFile[];
+}
+
+export interface PrepareFfeContributionInput {
+  projectId: string;
+  sessionId: string;
+  contributor: {
+    id: string;
+    name: string;
+  };
+  usableCount: number;
+  files: SubmitFfeContributionFile[];
+}
+
+export interface PrepareFfeContributionResult {
+  id: string;
+  contributorId: string;
+  contributorName: string;
+  sessionId: string;
+  exampleCount: number;
+  rootHash: string;
+  storageTxHash: string;
+  preparedAt: string;
+  coordinatorAddress: string;
+  chainId: number;
 }
 
 export interface SubmitFfeContributionResult {

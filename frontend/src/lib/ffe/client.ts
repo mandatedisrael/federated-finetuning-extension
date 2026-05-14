@@ -3,6 +3,8 @@ import type {
   CreateFfeProjectSessionResult,
   FfeApiErrorBody,
   FfeSessionStatusResult,
+  PrepareFfeContributionInput,
+  PrepareFfeContributionResult,
   SubmitFfeContributionFile,
   SubmitFfeContributionInput,
   SubmitFfeContributionResult,
@@ -71,6 +73,17 @@ export async function submitFfeContribution(
     body: JSON.stringify(input),
   });
   return parseApiResponse<SubmitFfeContributionResult>(res);
+}
+
+export async function prepareFfeContribution(
+  input: PrepareFfeContributionInput,
+): Promise<PrepareFfeContributionResult> {
+  const res = await fetch("/api/ffe/contributions/prepare", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return parseApiResponse<PrepareFfeContributionResult>(res);
 }
 
 export async function getFfeSessionStatus(sessionId: string): Promise<FfeSessionStatusResult> {
