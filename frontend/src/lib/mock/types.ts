@@ -78,6 +78,15 @@ export interface Project {
   createdAt: string;
   chainSession?: ProjectChainSession;
   submissionReceipts?: ProjectSubmissionReceipt[];
+  inviteDeliveries?: ProjectInviteDelivery[];
+}
+
+export interface ProjectInviteDelivery {
+  recipient: string;
+  status: "sent" | "preview" | "failed";
+  messageId?: string;
+  error?: string;
+  sentAt: string;
 }
 
 export interface ProjectChainSession {

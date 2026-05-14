@@ -16,6 +16,13 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Invite Emails
+
+Project creation now sends invite emails for every email-based invitee through
+`POST /api/notify/invites`. Configure `RESEND_API_KEY` and `EMAIL_FROM` in `.env.local` to send
+real email. Without those values, the API returns preview deliveries so local development does not
+pretend an email was sent.
+
 ## Live FFE bridge
 
 The frontend now has a server-side bridge for the real SDK path:

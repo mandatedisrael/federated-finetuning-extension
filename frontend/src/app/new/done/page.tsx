@@ -116,12 +116,25 @@ function ProjectCreatedInner() {
             <div className="border-border bg-surface-muted/40 flex items-center gap-3 rounded-[var(--radius-md)] border border-dashed p-3">
               <AvatarStack size="sm" people={invitees.map((c) => ({ id: c.id, name: c.name }))} />
               <p className="text-foreground-muted text-xs">
-                We&apos;ll send a magic-link email to {invitees.length}{" "}
-                {invitees.length === 1 ? "person" : "people"} you added.
+                {(() => {
+                  const sent =
+                    project.inviteDeliveries?.filter((d) => d.status === "sent").length ?? 0;
+                  const preview =
+                    project.inviteDeliveries?.filter((d) => d.status === "preview").length ?? 0;
+                  const failed =
+                    project.inviteDeliveries?.filter((d) => d.status === "failed").length ?? 0;
+                  if (sent > 0)
+                    return `Invite email sent to ${sent} ${sent === 1 ? "person" : "people"}.`;
+                  if (preview > 0)
+                    return `${preview} invite ${preview === 1 ? "email is" : "emails are"} ready, but no email provider is configured.`;
+                  if (failed > 0)
+                    return `${failed} invite ${failed === 1 ? "email" : "emails"} failed to send.`;
+                  return `Invite link ready for ${invitees.length} ${invitees.length === 1 ? "person" : "people"}.`;
+                })()}
               </p>
               <Button variant="ghost" size="sm" className="ml-auto" disabled>
                 <Mail className="h-3.5 w-3.5" />
-                Sent
+                {project.inviteDeliveries?.some((d) => d.status === "sent") ? "Sent" : "Ready"}
               </Button>
             </div>
           )}

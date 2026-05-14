@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { getTemplate } from "@/lib/mock/templates";
 import { projectStore } from "@/lib/mock/projectStore";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { sendProjectInvites } from "@/lib/notify/inviteDelivery";
 import type { Role } from "@/lib/mock/types";
 
 interface Invitee {
@@ -377,6 +378,21 @@ function SetupWizardInner() {
         deadline: state.deadline,
         stakeUsd: state.stakeUsd,
       });
+      const emailRecipients = project.contributors
+        .filter((contributor) => contributor.role !== "owner" && contributor.email.includes("@"))
+        .map((contributor) => ({ email: contributor.email, name: contributor.name }));
+      if (emailRecipients.length > 0) {
+        const delivery = await sendProjectInvites({
+          projectId: project.id,
+          projectName: project.name,
+          ownerName: user.displayName,
+          origin: window.location.origin,
+          inviteCode: project.inviteCode,
+          deadline: project.deadline,
+          recipients: emailRecipients,
+        });
+        projectStore.update(project.id, { inviteDeliveries: delivery.deliveries });
+      }
       router.push(`/new/done?id=${project.id}`);
     } catch (err) {
       setCreationError(err instanceof Error ? err.message : "Could not create the draft project.");
