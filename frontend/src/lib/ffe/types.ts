@@ -100,3 +100,16 @@ export interface FfeSessionStatusResult {
   submitters: string[];
   aggregatorPubkeySet: boolean;
 }
+
+export interface DownloadFfeArtifactInput {
+  participantAddress: string;
+  recipientPrivateKey: string;
+}
+
+export interface DownloadFfeArtifactResult {
+  sessionId: string;
+  tokenId: string;
+  modelBlobHash: string;
+  artifactSizeBytes: number;
+  downloadedAt: string;
+}

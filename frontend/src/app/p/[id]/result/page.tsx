@@ -4,22 +4,30 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Check, Sparkles, ThumbsDown, ThumbsUp, Minus } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  Download,
+  Loader2,
+  Sparkles,
+  ThumbsDown,
+  ThumbsUp,
+  Minus,
+} from "lucide-react";
 import { TrustBadge } from "@/components/domain/TrustBadge";
 import { UserPill } from "@/components/auth/UserPill";
-import {
-  SideBySideChat,
-  type ChatMessage,
-} from "@/components/domain/SideBySideChat";
+import { SideBySideChat, type ChatMessage } from "@/components/domain/SideBySideChat";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { MetricCard } from "@/components/domain/MetricCard";
 import { AvatarStack } from "@/components/domain/AvatarStack";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePageTitle } from "@/lib/a11y/usePageTitle";
+import { downloadFfeArtifact } from "@/lib/ffe/client";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject, seedMustPassResults } from "@/lib/mock/seedDemo";
 import { streamMockReply, type MockStream } from "@/lib/mock/mockChat";
+import type { DownloadFfeArtifactResult } from "@/lib/ffe/types";
 import type { Project } from "@/lib/mock/types";
 
 function msgId(prefix: string) {
@@ -148,14 +156,15 @@ export default function ResultPlaygroundPage() {
   const [rightMessages, setRightMessages] = React.useState<ChatMessage[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [comparisons, setComparisons] = React.useState<Comparison[]>([]);
+  const [artifact, setArtifact] = React.useState<DownloadFfeArtifactResult | null>(null);
+  const [artifactBusy, setArtifactBusy] = React.useState(false);
+  const [artifactError, setArtifactError] = React.useState<string | null>(null);
   const streamsRef = React.useRef<MockStream[]>([]);
 
   usePageTitle(project ? `Playground · ${project.name}` : "Playground");
 
   function recordVote(comparisonId: string, vote: Vote) {
-    setComparisons((prev) =>
-      prev.map((c) => (c.id === comparisonId ? { ...c, vote } : c)),
-    );
+    setComparisons((prev) => prev.map((c) => (c.id === comparisonId ? { ...c, vote } : c)));
   }
 
   function toggleTag(comparisonId: string, tag: string) {
@@ -226,10 +235,25 @@ export default function ResultPlaygroundPage() {
 
     await Promise.all([leftStream.done, rightStream.done]);
     setBusy(false);
-    setComparisons((prev) => [
-      ...prev,
-      { id: msgId("cmp"), prompt, tags: [] },
-    ]);
+    setComparisons((prev) => [...prev, { id: msgId("cmp"), prompt, tags: [] }]);
+  }
+
+  async function handleDownloadArtifact() {
+    const chainSession = project?.chainSession;
+    if (!chainSession) return;
+    setArtifactBusy(true);
+    setArtifactError(null);
+    try {
+      const result = await downloadFfeArtifact(chainSession.sessionId, {
+        participantAddress: chainSession.participantAddress,
+        recipientPrivateKey: chainSession.participantPrivateKey,
+      });
+      setArtifact(result);
+    } catch (err) {
+      setArtifactError(err instanceof Error ? err.message : "Could not fetch the INFT artifact.");
+    } finally {
+      setArtifactBusy(false);
+    }
   }
 
   const latestComparison = comparisons[comparisons.length - 1];
@@ -270,7 +294,11 @@ export default function ResultPlaygroundPage() {
           <span className="text-foreground-subtle text-xs">/</span>
           <span className="text-foreground-muted truncate text-sm">Playground</span>
         </div>
-        <div className="flex items-center gap-3"><TrustBadge /><UserPill /></div>      </header>
+        <div className="flex items-center gap-3">
+          <TrustBadge />
+          <UserPill />
+        </div>{" "}
+      </header>
 
       <section className="mx-auto w-full max-w-7xl px-6 py-10">
         <Link
@@ -291,12 +319,10 @@ export default function ResultPlaygroundPage() {
             <Sparkles className="h-3.5 w-3.5" />
             New version ready
           </p>
-          <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">
-            Try the new version
-          </h1>
+          <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">Try the new version</h1>
           <p className="text-foreground-muted mt-3 max-w-2xl text-base leading-relaxed">
-            Ask both versions the same question and compare. The right column is
-            the new model trained on this round&apos;s contributions.
+            Ask both versions the same question and compare. The right column is the new model
+            trained on this round&apos;s contributions.
             {user?.displayName ? ` Welcome, ${user.displayName.split(" ")[0]}.` : ""}
           </p>
 
@@ -308,6 +334,40 @@ export default function ResultPlaygroundPage() {
             />
             <span className="text-foreground-muted text-xs">{trainedByLabel}</span>
           </div>
+
+          {project.chainSession && (
+            <div className="border-border bg-surface mt-5 flex flex-col gap-3 rounded-[var(--radius-lg)] border p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-foreground-subtle text-[10px] tracking-wider uppercase">
+                  INFT artifact
+                </p>
+                {artifact ? (
+                  <p className="text-foreground-muted mt-1 text-sm">
+                    Token #{artifact.tokenId} · {artifact.artifactSizeBytes.toLocaleString()} bytes
+                  </p>
+                ) : (
+                  <p className="text-foreground-muted mt-1 text-sm">
+                    Fetch the minted artifact receipt once the aggregator finishes training.
+                  </p>
+                )}
+                {artifactError && (
+                  <p className="text-status-warning mt-2 text-xs">{artifactError}</p>
+                )}
+              </div>
+              <Button
+                variant={artifact ? "secondary" : "primary"}
+                onClick={handleDownloadArtifact}
+                disabled={artifactBusy}
+              >
+                {artifactBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {artifact ? "Refresh artifact" : "Fetch INFT"}
+              </Button>
+            </div>
+          )}
         </motion.div>
 
         <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -342,10 +402,7 @@ export default function ResultPlaygroundPage() {
                   {mustPassPassed} of {mustPass.length} pass
                 </p>
               </div>
-              <Badge
-                tone={mustPassPassed === mustPass.length ? "success" : "warning"}
-                outline
-              >
+              <Badge tone={mustPassPassed === mustPass.length ? "success" : "warning"} outline>
                 {mustPassPassed === mustPass.length ? "All pass" : "Needs review"}
               </Badge>
             </div>
@@ -359,9 +416,9 @@ export default function ResultPlaygroundPage() {
                     title={s.prompt}
                     className={
                       passed
-                        ? "bg-[var(--status-success-bg)] text-status-success inline-flex max-w-full items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs"
+                        ? "text-status-success inline-flex max-w-full items-center gap-1.5 rounded-[var(--radius-pill)] bg-[var(--status-success-bg)] px-2.5 py-1 text-xs"
                         : failed
-                          ? "bg-[var(--status-danger-bg)] text-status-danger inline-flex max-w-full items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs"
+                          ? "text-status-danger inline-flex max-w-full items-center gap-1.5 rounded-[var(--radius-pill)] bg-[var(--status-danger-bg)] px-2.5 py-1 text-xs"
                           : "bg-surface-muted text-foreground-muted inline-flex max-w-full items-center gap-1.5 rounded-[var(--radius-pill)] px-2.5 py-1 text-xs"
                     }
                   >

@@ -1,6 +1,8 @@
 import type {
   CreateFfeProjectSessionInput,
   CreateFfeProjectSessionResult,
+  DownloadFfeArtifactInput,
+  DownloadFfeArtifactResult,
   FfeApiErrorBody,
   FfeSessionStatusResult,
   PrepareFfeContributionInput,
@@ -91,4 +93,16 @@ export async function getFfeSessionStatus(sessionId: string): Promise<FfeSession
     cache: "no-store",
   });
   return parseApiResponse<FfeSessionStatusResult>(res);
+}
+
+export async function downloadFfeArtifact(
+  sessionId: string,
+  input: DownloadFfeArtifactInput,
+): Promise<DownloadFfeArtifactResult> {
+  const res = await fetch(`/api/ffe/sessions/${encodeURIComponent(sessionId)}/artifact`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return parseApiResponse<DownloadFfeArtifactResult>(res);
 }

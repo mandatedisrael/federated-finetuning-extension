@@ -3,6 +3,7 @@ import { OG_CHAIN } from "@/lib/og/chain";
 import type {
   CreateFfeProjectSessionInput,
   CreateFfeProjectSessionResult,
+  DownloadFfeArtifactResult,
   FfeSessionStatusResult,
   PrepareFfeContributionResult,
   SubmitFfeContributionFile,
@@ -301,5 +302,41 @@ export async function getSessionStatus(sessionIdInput: string): Promise<FfeSessi
     participants: [...participants],
     submitters: [...submitters],
     aggregatorPubkeySet: session.aggregatorPubkey !== "0x" && session.aggregatorPubkey.length > 2,
+  };
+}
+
+export async function downloadArtifact(input: {
+  sessionId: string;
+  participantAddress: string;
+  recipientPrivateKey: string;
+}): Promise<DownloadFfeArtifactResult> {
+  const sessionId = BigInt(input.sessionId);
+  const participantAddress = normalizeAddress(input.participantAddress, "participantAddress");
+  const recipientPrivateKey = readHexBytes(input.recipientPrivateKey, "recipientPrivateKey");
+  const ffe = createFfeClient();
+
+  const tokenId = await ffe.inft.getTokenBySession(sessionId);
+  const sealedKeyHex = await ffe.inft.getSealedKey(tokenId, participantAddress);
+  if (!sealedKeyHex || sealedKeyHex === "0x" || sealedKeyHex.length <= 2) {
+    throw new Error(`No sealed key found for ${participantAddress} on INFT token ${tokenId}.`);
+  }
+
+  const sealedKey = crypto.sealedKeyFromBytes(hexToBytes(sealedKeyHex, "sealedKey"));
+  const dataKey = crypto.unseal(sealedKey, recipientPrivateKey);
+  const record = await ffe.inft.getMintRecord(tokenId);
+  const encryptedLora = await ffe.storage.download(record.modelBlobHash);
+  if (encryptedLora.length <= crypto.AES_NONCE_BYTES) {
+    throw new Error("Downloaded LoRA blob is too short to contain an AES nonce.");
+  }
+  const nonce = encryptedLora.slice(0, crypto.AES_NONCE_BYTES);
+  const ciphertext = encryptedLora.slice(crypto.AES_NONCE_BYTES);
+  const data = crypto.aeadDecrypt(dataKey, { nonce, ciphertext });
+
+  return {
+    sessionId: input.sessionId,
+    tokenId: tokenId.toString(),
+    modelBlobHash: record.modelBlobHash,
+    artifactSizeBytes: data.length,
+    downloadedAt: new Date().toISOString(),
   };
 }

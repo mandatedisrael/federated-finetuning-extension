@@ -186,7 +186,7 @@ Legend: `[ ]` planned · `[x]` shipped · `[~]` in progress
 - [x] 76. `feat(ffe): submit upload data through FFE.submit and store receipts`
 - [x] 77. `feat(ffe): poll Coordinator/INFT state instead of relying on local cache`
 - [x] 78. `feat(ffe): submit Coordinator transactions with connected wallet`
-- [ ] 79. `feat(ffe): add download/playground flow for minted INFT artifacts`
+- [x] 79. `feat(ffe): add download/playground flow for minted INFT artifacts`
 - [ ] 80. `feat(ffe): register invited contributors with wallet/pubkey pairs`
 
 ---
