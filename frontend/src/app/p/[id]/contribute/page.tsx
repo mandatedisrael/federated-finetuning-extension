@@ -321,12 +321,13 @@ function UploadFlow({ projectId }: { projectId: string }) {
 
           <div className="border-border bg-surface flex flex-col items-center justify-between gap-3 rounded-[var(--radius-lg)] border p-4 sm:flex-row">
             <p className="text-foreground-muted text-xs leading-relaxed">
-              Submitting sends this cleaned export through the live FFE bridge, encrypts it for the
-              aggregator, uploads the ciphertext to 0G Storage, and commits the hash on-chain.
+              {report.usableCount > 0
+                ? "Submitting sends this cleaned export through the live FFE bridge, encrypts it for the aggregator, uploads the ciphertext to 0G Storage, and commits the hash on-chain."
+                : "This upload does not look like trainable examples yet. Add JSONL, structured JSON rows, or text snippets that reflect the data you actually want to fine-tune on."}
             </p>
-            <Button onClick={handleSubmit} size="lg">
+            <Button onClick={handleSubmit} size="lg" disabled={report.usableCount === 0}>
               <Lock className="h-4 w-4" />
-              Encrypt and submit
+              {report.usableCount === 0 ? "Upload trainable data first" : "Encrypt and submit"}
             </Button>
           </div>
 
