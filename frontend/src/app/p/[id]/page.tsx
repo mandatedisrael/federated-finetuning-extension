@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useWallets } from "@privy-io/react-auth";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { TrustBadge } from "@/components/domain/TrustBadge";
@@ -156,6 +156,7 @@ function ProjectSettingsButton({
 
 export default function ProjectDashboardPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const { user } = useAuth();
   const { wallets } = useWallets();
   const [project, setProject] = React.useState<Project | null>(null);
@@ -260,7 +261,7 @@ export default function ProjectDashboardPage() {
         )
       : undefined;
 
-  async function startFfeSession() {
+  async function startFfeSession(options?: { redirectToContribute?: boolean }) {
     if (!project || !user) return;
     setStartBusy(true);
     setStartError(null);
@@ -342,6 +343,9 @@ export default function ProjectDashboardPage() {
         chainSession,
         stage: "waiting",
       }).catch((err) => console.warn("Could not persist FFE session.", err));
+      if (options?.redirectToContribute) {
+        router.push(`/p/${project.id}/contribute`);
+      }
     } catch (err) {
       setStartError(err instanceof Error ? err.message : "Could not start the FFE session.");
     } finally {
@@ -419,7 +423,7 @@ export default function ProjectDashboardPage() {
           const headline = isDraft
             ? isOwner
               ? isSoloProject
-                ? "Start your finetuning session."
+                ? "Add your training data."
                 : "Collect contributor wallets."
               : me.registeredAt
                 ? "You're registered."
@@ -432,7 +436,7 @@ export default function ProjectDashboardPage() {
           const sub = isDraft
             ? isOwner
               ? isSoloProject
-                ? "Your wallet is already connected. Open the session whenever you want to begin uploading data."
+                ? "We&apos;ll open your private upload room and start the on-chain session in one step."
                 : "Share the invite link, then start the on-chain session when enough people are ready."
               : me.registeredAt
                 ? "The owner can start finetuning once the team is ready."
@@ -444,14 +448,14 @@ export default function ProjectDashboardPage() {
                 : "We'll update you when the project changes stage.";
           const ctaHref = isDraft
             ? isSoloProject
-              ? `/p/${project.id}`
+              ? null
               : `/join?code=${project.inviteCode}`
             : isReady
               ? `/p/${project.id}/result`
               : `/p/${project.id}/contribute`;
           const ctaLabel = isDraft
             ? isSoloProject
-              ? "Start session"
+              ? "Add training data"
               : "Open invite"
             : isReady
               ? "Try the new version"
@@ -490,21 +494,35 @@ export default function ProjectDashboardPage() {
                   {sub}
                 </p>
               </div>
-              <Button
-                asChild
-                variant={isWaitingOnYou ? "secondary" : "primary"}
-                className={
-                  isWaitingOnYou
-                    ? "text-foreground border-transparent bg-white hover:bg-white/90"
-                    : ""
-                }
-              >
-                <Link href={ctaHref}>
-                  {React.createElement(ctaIcon, { className: "h-4 w-4" })}
-                  {ctaLabel}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
+              {ctaHref ? (
+                <Button
+                  asChild
+                  variant={isWaitingOnYou ? "secondary" : "primary"}
+                  className={
+                    isWaitingOnYou
+                      ? "text-foreground border-transparent bg-white hover:bg-white/90"
+                      : ""
+                  }
+                >
+                  <Link href={ctaHref}>
+                    {React.createElement(ctaIcon, { className: "h-4 w-4" })}
+                    {ctaLabel}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button onClick={() => void startFfeSession({ redirectToContribute: true })}>
+                  {startBusy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      {React.createElement(ctaIcon, { className: "h-4 w-4" })}
+                      {ctaLabel}
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              )}
             </motion.section>
           );
         })()}
@@ -576,13 +594,18 @@ export default function ProjectDashboardPage() {
                   </p>
                 </div>
                 {isOwner && (
-                  <Button onClick={startFfeSession} disabled={startBusy}>
+                  <Button
+                    onClick={() => void startFfeSession({ redirectToContribute: isSoloProject })}
+                    disabled={startBusy}
+                  >
                     {startBusy ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Play className="h-4 w-4" />
+                      <>
+                        <Play className="h-4 w-4" />
+                        {isSoloProject ? "Add training data" : "Start session"}
+                      </>
                     )}
-                    Start session
                   </Button>
                 )}
               </div>
