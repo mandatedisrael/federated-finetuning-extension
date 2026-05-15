@@ -43,6 +43,13 @@ function sortProjects(projects: Project[]) {
   });
 }
 
+function isProjectVisibleToActor(project: Project, actorId: string) {
+  return (
+    project.ownerId === actorId ||
+    project.contributors.some((contributor) => contributor.id === actorId)
+  );
+}
+
 function stageLabel(project: Project) {
   switch (project.stage) {
     case "failed":
@@ -84,10 +91,16 @@ export function ResumeProjectsButton() {
       setLoading(true);
       setError(null);
 
-      const localProjects = sortProjects(projectStore.list());
+      const allLocalProjects = projectStore.list();
+      const actorLocalProjects =
+        status === "authenticated" && user?.id
+          ? sortProjects(
+              allLocalProjects.filter((project) => isProjectVisibleToActor(project, user.id)),
+            )
+          : sortProjects(allLocalProjects);
       if (status !== "authenticated" || !user?.id) {
         if (!cancelled) {
-          setProjects(localProjects);
+          setProjects(actorLocalProjects);
           setLoading(false);
         }
         return;
@@ -96,10 +109,10 @@ export function ResumeProjectsButton() {
       try {
         const remoteProjects = await listProjectsForActor(user.id);
         if (cancelled) return;
-        setProjects(sortProjects(dedupeProjects([...remoteProjects, ...localProjects])));
+        setProjects(sortProjects(dedupeProjects([...remoteProjects, ...actorLocalProjects])));
       } catch (err) {
         if (cancelled) return;
-        setProjects(localProjects);
+        setProjects(actorLocalProjects);
         setError(err instanceof Error ? err.message : "Could not load your sessions.");
       } finally {
         if (!cancelled) setLoading(false);
