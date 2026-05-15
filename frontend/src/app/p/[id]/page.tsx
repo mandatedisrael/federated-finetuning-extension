@@ -24,6 +24,10 @@ import {
   AlertCircle,
   Settings,
   Copy,
+  BrainCircuit,
+  Waves,
+  ShieldCheck,
+  Orbit,
 } from "lucide-react";
 import {
   Sheet,
@@ -151,6 +155,199 @@ function ProjectSettingsButton({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function TrainingShowcase({
+  project,
+  sessionStatus,
+}: {
+  project: Project;
+  sessionStatus: FfeSessionStatusResult | null;
+}) {
+  const telemetry = [
+    {
+      label: "Dataset alignment",
+      detail: "Normalizing uploaded examples into the active fine-tuning window.",
+      delay: 0,
+    },
+    {
+      label: "Gradient updates",
+      detail: "Applying contributor signal against the selected base model.",
+      delay: 0.18,
+    },
+    {
+      label: "Validation sweep",
+      detail: "Checking model drift and preparing the next checkpoint.",
+      delay: 0.36,
+    },
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.36, ease: [0.16, 1, 0.3, 1] }}
+      className="relative mt-5 overflow-hidden rounded-[var(--radius-lg)] border border-[#d6ddff] bg-[#0e1530] p-5 text-white shadow-[0_24px_80px_rgba(48,76,255,0.18)]"
+    >
+      <motion.div
+        className="absolute -top-16 right-0 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(96,165,250,0.28),transparent_68%)]"
+        animate={{ scale: [1, 1.08, 1], opacity: [0.5, 0.9, 0.5] }}
+        transition={{ duration: 4.2, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute -bottom-20 left-10 h-48 w-48 rounded-full bg-[radial-gradient(circle,rgba(45,212,191,0.18),transparent_68%)]"
+        animate={{ scale: [0.94, 1.06, 0.94], opacity: [0.35, 0.7, 0.35] }}
+        transition={{ duration: 5.1, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      <div className="relative z-10 grid gap-5 lg:grid-cols-[1.3fr_0.9fr]">
+        <div>
+          <div className="flex items-center gap-2">
+            <Badge className="border-white/10 bg-white/10 text-white">Training live</Badge>
+            <span className="text-xs tracking-[0.18em] text-white/55 uppercase">Federated run</span>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-[0.9fr_1.1fr]">
+            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center gap-3">
+                <motion.div
+                  className="relative flex h-14 w-14 items-center justify-center rounded-full border border-cyan-300/25 bg-cyan-300/10"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+                >
+                  <motion.div
+                    className="absolute inset-1 rounded-full border border-cyan-200/25"
+                    animate={{ rotate: -360 }}
+                    transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+                  />
+                  <BrainCircuit className="h-6 w-6 text-cyan-100" />
+                </motion.div>
+                <div>
+                  <p className="text-xs tracking-[0.18em] text-white/55 uppercase">Core loop</p>
+                  <p className="mt-1 text-lg font-medium tracking-tight">
+                    Fine-tuning checkpoint active
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {telemetry.map((item) => (
+                  <div key={item.label} className="flex items-start gap-3">
+                    <motion.span
+                      className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.75)]"
+                      animate={{ scale: [0.9, 1.25, 0.9], opacity: [0.45, 1, 0.45] }}
+                      transition={{
+                        duration: 2.2,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: item.delay,
+                      }}
+                    />
+                    <div>
+                      <p className="text-sm font-medium tracking-tight">{item.label}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-white/65">{item.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs tracking-[0.18em] text-white/55 uppercase">Training flow</p>
+                <Orbit className="h-4 w-4 text-cyan-200/80" />
+              </div>
+              <div className="mt-4 flex items-center justify-between gap-3">
+                {[
+                  { icon: ShieldCheck, label: "Encrypted data" },
+                  { icon: Waves, label: "Gradient pass" },
+                  { icon: Sparkles, label: "Checkpoint merge" },
+                ].map((node, index) => {
+                  const Icon = node.icon;
+                  return (
+                    <React.Fragment key={node.label}>
+                      <motion.div
+                        className="flex w-full max-w-[8rem] flex-col items-center rounded-[var(--radius-lg)] border border-white/10 bg-white/6 px-3 py-4 text-center"
+                        animate={{ y: [0, -5, 0] }}
+                        transition={{
+                          duration: 2.8,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                          delay: index * 0.24,
+                        }}
+                      >
+                        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
+                          <Icon className="h-5 w-5 text-cyan-100" />
+                        </div>
+                        <p className="mt-3 text-xs font-medium tracking-tight text-white/85">
+                          {node.label}
+                        </p>
+                      </motion.div>
+                      {index < 2 && (
+                        <motion.div
+                          className="hidden h-px flex-1 bg-[linear-gradient(90deg,rgba(103,232,249,0.18),rgba(96,165,250,0.75),rgba(103,232,249,0.18))] md:block"
+                          animate={{ opacity: [0.35, 1, 0.35] }}
+                          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                        />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid content-start gap-3">
+          {[
+            { label: "FFE session", value: `#${project.chainSession?.sessionId ?? "—"}` },
+            { label: "Base model", value: project.chainSession?.baseModel ?? "Awaiting sync" },
+            {
+              label: "On-chain quorum",
+              value: sessionStatus
+                ? `${sessionStatus.submittedCount}/${sessionStatus.quorum} submitted`
+                : "Telemetry refreshing",
+            },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-[var(--radius-lg)] border border-white/10 bg-white/6 px-4 py-3"
+            >
+              <p className="text-[10px] tracking-[0.18em] text-white/55 uppercase">{stat.label}</p>
+              <p className="mt-2 text-sm font-medium tracking-tight text-white">{stat.value}</p>
+            </div>
+          ))}
+
+          <div className="rounded-[var(--radius-lg)] border border-cyan-300/20 bg-cyan-300/8 px-4 py-4">
+            <p className="text-[10px] tracking-[0.18em] text-cyan-100/70 uppercase">
+              Live activity
+            </p>
+            <p className="mt-2 text-sm font-medium tracking-tight text-cyan-50">
+              The model is processing your uploaded dataset and preparing the next evaluation
+              checkpoint.
+            </p>
+            <div className="mt-4 space-y-2">
+              {[0, 1, 2].map((bar) => (
+                <div key={bar} className="h-2 overflow-hidden rounded-full bg-white/10">
+                  <motion.div
+                    className="h-full rounded-full bg-[linear-gradient(90deg,#67e8f9,#818cf8,#22d3ee)]"
+                    animate={{ x: ["-30%", "105%"] }}
+                    transition={{
+                      duration: 2.6 + bar * 0.35,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: bar * 0.18,
+                    }}
+                    style={{ width: "45%" }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -419,6 +616,7 @@ export default function ProjectDashboardPage() {
           const isDraft = !project.chainSession;
           const isWaitingOnYou =
             !isDraft && project.stage === "waiting" && me.status === "not-started";
+          const isTrainingStage = project.stage === "training";
           const isReady = project.stage === "ready";
           const headline = isDraft
             ? isOwner
@@ -428,11 +626,13 @@ export default function ProjectDashboardPage() {
               : me.registeredAt
                 ? "You're registered."
                 : "Register from the invite link."
-            : isWaitingOnYou
-              ? "You're up."
-              : isReady
-                ? "The new version is ready."
-                : `Status: ${me.status.replace(/-/g, " ")}`;
+            : isTrainingStage
+              ? "Training is underway."
+              : isWaitingOnYou
+                ? "You're up."
+                : isReady
+                  ? "The new version is ready."
+                  : `Status: ${me.status.replace(/-/g, " ")}`;
           const sub = isDraft
             ? isOwner
               ? isSoloProject
@@ -441,11 +641,13 @@ export default function ProjectDashboardPage() {
               : me.registeredAt
                 ? "The owner can start finetuning once the team is ready."
                 : "Open the invite link to connect your wallet and register your training key."
-            : isWaitingOnYou
-              ? "Add your training examples to keep the project moving."
-              : isReady
-                ? "Try the new model side-by-side and vote."
-                : "We'll update you when the project changes stage.";
+            : isTrainingStage
+              ? "Your encrypted dataset is in the live run. We&apos;ll surface the next checkpoint as soon as it clears evaluation."
+              : isWaitingOnYou
+                ? "Add your training examples to keep the project moving."
+                : isReady
+                  ? "Try the new model side-by-side and vote."
+                  : "We'll update you when the project changes stage.";
           const ctaHref = isDraft
             ? isSoloProject
               ? null
@@ -457,9 +659,11 @@ export default function ProjectDashboardPage() {
             ? isSoloProject
               ? "Add training data"
               : "Open invite"
-            : isReady
-              ? "Try the new version"
-              : "Go contribute";
+            : isTrainingStage
+              ? "Training live"
+              : isReady
+                ? "Try the new version"
+                : "Go contribute";
           const ctaIcon = isDraft && isSoloProject ? Play : isReady ? Sparkles : Upload;
 
           return (
@@ -494,7 +698,12 @@ export default function ProjectDashboardPage() {
                   {sub}
                 </p>
               </div>
-              {ctaHref ? (
+              {isTrainingStage ? (
+                <Button disabled variant="secondary">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {ctaLabel}
+                </Button>
+              ) : ctaHref ? (
                 <Button
                   asChild
                   variant={isWaitingOnYou ? "secondary" : "primary"}
@@ -632,7 +841,11 @@ export default function ProjectDashboardPage() {
             stageLabels={isSoloProject ? { waiting: "Prepare your data" } : undefined}
           />
 
-          {project.chainSession && (
+          {project.stage === "training" && (
+            <TrainingShowcase project={project} sessionStatus={sessionStatus} />
+          )}
+
+          {project.chainSession && project.stage !== "training" && (
             <div className="border-border bg-surface-muted/40 mt-5 grid gap-3 rounded-[var(--radius-md)] border p-4 text-xs sm:grid-cols-4">
               <div>
                 <p className="text-foreground-subtle tracking-widest uppercase">FFE session</p>
