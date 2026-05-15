@@ -3,16 +3,14 @@
 import * as React from "react";
 import { useWallets } from "@privy-io/react-auth";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { motion } from "motion/react";
-import { AlertCircle, ArrowLeft, Calendar, ShieldCheck, Upload, Pencil } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
+import { AlertCircle, ArrowLeft, Calendar, ShieldCheck } from "lucide-react";
 import { TrustBadge } from "@/components/domain/TrustBadge";
 import { UserPill } from "@/components/auth/UserPill";
 import { StatusChip } from "@/components/domain/StatusChip";
 import { Badge } from "@/components/ui/Badge";
 import { UploadZone } from "@/components/contribute/UploadZone";
-import { RewriteStudio } from "@/components/contribute/RewriteStudio";
 import { DataConciergeRow } from "@/components/domain/DataConciergeRow";
 import { scanFiles, type ConciergeReport } from "@/lib/mock/dataConcierge";
 import { Loader2, Lock } from "lucide-react";
@@ -25,15 +23,11 @@ import { filesToFfePayload, prepareFfeContribution, submitFfeContribution } from
 import { submitPreparedContributionWithWallet } from "@/lib/ffe/walletSubmit";
 import { loadProject, updateProject } from "@/lib/projects/client";
 import type { Project } from "@/lib/mock/types";
-import type { RewritePrompt } from "@/lib/mock/rewritePrompts";
 
 export default function ContributePage() {
   const params = useParams<{ id: string }>();
-  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [project, setProject] = React.useState<Project | null>(null);
-  const [report, setReport] = React.useState<ConciergeReport | null>(null);
-  const initialTab = searchParams?.get("tab") === "rewrite" ? "rewrite" : "upload";
 
   React.useEffect(() => {
     if (!params?.id) return;
@@ -65,12 +59,6 @@ export default function ContributePage() {
   const me = user
     ? project.contributors.find((c) => c.id === user.id)
     : project.contributors.find((c) => c.role !== "owner");
-  const rewritePrompts: RewritePrompt[] =
-    report?.previewRows.map((row, index) => ({
-      id: `upload-${index + 1}`,
-      userMessage: row.question,
-      currentReply: row.answer,
-    })) ?? [];
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 py-6">
@@ -128,26 +116,7 @@ export default function ContributePage() {
           transition={{ duration: 0.28 }}
           className="min-w-0 flex-1"
         >
-          <Tabs defaultValue={initialTab}>
-            <TabsList>
-              <TabsTrigger value="upload">
-                <Upload className="h-3.5 w-3.5" />
-                Upload files
-              </TabsTrigger>
-              <TabsTrigger value="rewrite">
-                <Pencil className="h-3.5 w-3.5" />
-                Rewrite examples
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="upload" forceMount>
-              <UploadFlow projectId={project.id} onReportChange={setReport} />
-            </TabsContent>
-
-            <TabsContent value="rewrite" forceMount>
-              <RewriteStudio projectId={project.id} prompts={rewritePrompts} />
-            </TabsContent>
-          </Tabs>
+          <UploadFlow projectId={project.id} />
         </motion.div>
       </div>
     </main>
@@ -156,13 +125,7 @@ export default function ContributePage() {
 
 type UploadPhase = "idle" | "scanning" | "review" | "submitting" | "done";
 
-function UploadFlow({
-  projectId,
-  onReportChange,
-}: {
-  projectId: string;
-  onReportChange: (report: ConciergeReport | null) => void;
-}) {
+function UploadFlow({ projectId }: { projectId: string }) {
   const { user } = useAuth();
   const { wallets } = useWallets();
   const [files, setFiles] = React.useState<File[]>([]);
@@ -177,14 +140,12 @@ function UploadFlow({
     setPhase("scanning");
     const r = await scanFiles(next);
     setReport(r);
-    onReportChange(r);
     setPhase("review");
   }
 
   function reset() {
     setFiles([]);
     setReport(null);
-    onReportChange(null);
     setPhase("idle");
     setSubmit("idle");
     setError(null);
