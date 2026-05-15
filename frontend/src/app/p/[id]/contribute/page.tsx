@@ -25,12 +25,14 @@ import { filesToFfePayload, prepareFfeContribution, submitFfeContribution } from
 import { submitPreparedContributionWithWallet } from "@/lib/ffe/walletSubmit";
 import { loadProject, updateProject } from "@/lib/projects/client";
 import type { Project } from "@/lib/mock/types";
+import type { RewritePrompt } from "@/lib/mock/rewritePrompts";
 
 export default function ContributePage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const [project, setProject] = React.useState<Project | null>(null);
+  const [report, setReport] = React.useState<ConciergeReport | null>(null);
   const initialTab = searchParams?.get("tab") === "rewrite" ? "rewrite" : "upload";
 
   React.useEffect(() => {
@@ -63,6 +65,12 @@ export default function ContributePage() {
   const me = user
     ? project.contributors.find((c) => c.id === user.id)
     : project.contributors.find((c) => c.role !== "owner");
+  const rewritePrompts: RewritePrompt[] =
+    report?.previewRows.map((row, index) => ({
+      id: `upload-${index + 1}`,
+      userMessage: row.question,
+      currentReply: row.answer,
+    })) ?? [];
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 py-6">
@@ -132,12 +140,12 @@ export default function ContributePage() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="upload">
-              <UploadFlow projectId={project.id} />
+            <TabsContent value="upload" forceMount>
+              <UploadFlow projectId={project.id} onReportChange={setReport} />
             </TabsContent>
 
-            <TabsContent value="rewrite">
-              <RewriteStudio projectId={project.id} />
+            <TabsContent value="rewrite" forceMount>
+              <RewriteStudio projectId={project.id} prompts={rewritePrompts} />
             </TabsContent>
           </Tabs>
         </motion.div>
@@ -148,7 +156,13 @@ export default function ContributePage() {
 
 type UploadPhase = "idle" | "scanning" | "review" | "submitting" | "done";
 
-function UploadFlow({ projectId }: { projectId: string }) {
+function UploadFlow({
+  projectId,
+  onReportChange,
+}: {
+  projectId: string;
+  onReportChange: (report: ConciergeReport | null) => void;
+}) {
   const { user } = useAuth();
   const { wallets } = useWallets();
   const [files, setFiles] = React.useState<File[]>([]);
@@ -163,12 +177,14 @@ function UploadFlow({ projectId }: { projectId: string }) {
     setPhase("scanning");
     const r = await scanFiles(next);
     setReport(r);
+    onReportChange(r);
     setPhase("review");
   }
 
   function reset() {
     setFiles([]);
     setReport(null);
+    onReportChange(null);
     setPhase("idle");
     setSubmit("idle");
     setError(null);

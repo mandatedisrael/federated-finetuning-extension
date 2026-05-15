@@ -6,10 +6,10 @@ import { Check, SkipForward, Flag, Lock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { SubmitStateMachine, type SubmitPhase } from "./SubmitStateMachine";
-import { REWRITE_PROMPTS } from "@/lib/mock/rewritePrompts";
 import { projectStore } from "@/lib/mock/projectStore";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { cn } from "@/lib/cn";
+import type { RewritePrompt } from "@/lib/mock/rewritePrompts";
 
 const TARGET = 50;
 
@@ -19,7 +19,13 @@ interface RewriteEntry {
   flagged?: boolean;
 }
 
-export function RewriteStudio({ projectId }: { projectId: string }) {
+export function RewriteStudio({
+  projectId,
+  prompts,
+}: {
+  projectId: string;
+  prompts: RewritePrompt[];
+}) {
   const { user } = useAuth();
   const [entries, setEntries] = React.useState<RewriteEntry[]>([]);
   const [submit, setSubmit] = React.useState<SubmitPhase>("idle");
@@ -74,6 +80,20 @@ export function RewriteStudio({ projectId }: { projectId: string }) {
     );
   }
 
+  if (prompts.length === 0) {
+    return (
+      <div className="border-border bg-surface space-y-3 rounded-[var(--radius-lg)] border p-6">
+        <p className="text-foreground text-sm font-medium tracking-tight">
+          No rewrite examples yet
+        </p>
+        <p className="text-foreground-muted text-sm leading-relaxed">
+          Upload training files first and we&apos;ll turn the scanned examples into rewrite cards
+          here so you can improve them before submitting.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       <header className="border-border bg-surface flex items-center justify-between gap-3 rounded-[var(--radius-md)] border p-3">
@@ -108,7 +128,7 @@ export function RewriteStudio({ projectId }: { projectId: string }) {
       </AnimatePresence>
 
       <ol className="space-y-3">
-        {REWRITE_PROMPTS.map((p, i) => {
+        {prompts.map((p, i) => {
           const entry = entries.find((e) => e.promptId === p.id);
           return (
             <RewriteCard
@@ -154,7 +174,7 @@ function RewriteCard({
   disabled,
 }: {
   index: number;
-  prompt: (typeof REWRITE_PROMPTS)[number];
+  prompt: RewritePrompt;
   entry?: RewriteEntry;
   onChange: (v: string) => void;
   onFlag: () => void;
