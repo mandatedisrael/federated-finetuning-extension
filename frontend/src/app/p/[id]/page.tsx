@@ -62,6 +62,7 @@ function ProjectSettingsButton({
   project: Project;
   onUpdate: (p: Project) => void;
 }) {
+  const isSoloProject = project.contributors.every((contributor) => contributor.role === "owner");
   const [goal, setGoal] = React.useState(project.goal);
   const [deadline, setDeadline] = React.useState(project.deadline);
   const [copied, setCopied] = React.useState(false);
@@ -109,15 +110,17 @@ function ProjectSettingsButton({
               onChange={(e) => setGoal(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="set-deadline">Deadline</Label>
-            <Input
-              id="set-deadline"
-              type="date"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
-            />
-          </div>
+          {!isSoloProject && (
+            <div className="space-y-2">
+              <Label htmlFor="set-deadline">Deadline</Label>
+              <Input
+                id="set-deadline"
+                type="date"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+              />
+            </div>
+          )}
           <div className="border-border bg-surface-muted/40 rounded-[var(--radius-md)] border border-dashed p-3">
             <p className="text-foreground text-sm font-medium tracking-tight">Deposits</p>
             <p className="text-foreground-muted mt-1 text-xs leading-relaxed">
@@ -230,6 +233,7 @@ export default function ProjectDashboardPage() {
 
   const template = getTemplate(project.templateId);
   const isOwner = user?.id === project.ownerId;
+  const isSoloProject = project.contributors.every((contributor) => contributor.role === "owner");
 
   const me = user ? project.contributors.find((c) => c.id === user.id) : undefined;
   const isBlockingDeploy =
@@ -553,10 +557,14 @@ export default function ProjectDashboardPage() {
                     Draft session
                   </p>
                   <p className="text-foreground mt-1 text-sm font-medium">
-                    {registeredContributors.length} of {project.contributors.length} wallets ready
+                    {isSoloProject
+                      ? "Your wallet is ready"
+                      : `${registeredContributors.length} of ${project.contributors.length} wallets ready`}
                   </p>
                   <p className="text-foreground-muted mt-1 text-xs">
-                    Contributors register from the invite link before the on-chain session starts.
+                    {isSoloProject
+                      ? "No collaborator window is needed here. Start the on-chain session whenever you're ready."
+                      : "Contributors register from the invite link before the on-chain session starts."}
                   </p>
                 </div>
                 {isOwner && (
@@ -623,14 +631,6 @@ export default function ProjectDashboardPage() {
             const uploaded = project.contributors.filter((c) => c.status !== "not-started").length;
             const total = project.contributors.length;
             const mustPassSet = project.mustPass.length >= 3;
-            const daysLeft = Math.max(
-              0,
-              Math.round(
-                (new Date(project.deadline + "T23:59:59").getTime() -
-                  new Date(project.createdAt).getTime()) /
-                  (1000 * 60 * 60 * 24),
-              ),
-            );
             const items: Array<{
               ok: boolean;
               warn: boolean;
@@ -648,7 +648,17 @@ export default function ProjectDashboardPage() {
                 label: mustPassSet ? "Must-Pass Scenarios set" : "Must-Pass Scenarios not yet set",
                 href: isOwner ? `/p/${project.id}/scenarios` : undefined,
               },
-              {
+            ];
+            if (!isSoloProject) {
+              const daysLeft = Math.max(
+                0,
+                Math.round(
+                  (new Date(project.deadline + "T23:59:59").getTime() -
+                    new Date(project.createdAt).getTime()) /
+                    (1000 * 60 * 60 * 24),
+                ),
+              );
+              items.push({
                 ok: daysLeft > 1,
                 warn: daysLeft <= 1,
                 label:
@@ -657,10 +667,14 @@ export default function ProjectDashboardPage() {
                     : daysLeft === 1
                       ? "Deadline is tomorrow"
                       : `Deadline in ${daysLeft} days`,
-              },
-            ];
+              });
+            }
             return (
-              <ul className="border-border mt-6 grid gap-2 border-t pt-5 text-sm sm:grid-cols-3">
+              <ul
+                className={`border-border mt-6 grid gap-2 border-t pt-5 text-sm ${
+                  isSoloProject ? "sm:grid-cols-2" : "sm:grid-cols-3"
+                }`}
+              >
                 {items.map((it, i) => {
                   const Icon = it.ok ? Check : it.warn ? AlertCircle : Circle;
                   const toneClass = it.ok

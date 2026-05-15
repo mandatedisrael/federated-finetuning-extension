@@ -278,53 +278,80 @@ function SetupWizardInner() {
     },
     {
       id: "deadline",
-      label: "Deadline",
+      label: state.fineTuneAlone ? "Start" : "Deadline",
       isValid: () =>
-        Boolean(state.deadline) && new Date(state.deadline) > new Date(Date.now() - 86_400_000),
+        state.fineTuneAlone ||
+        (Boolean(state.deadline) && new Date(state.deadline) > new Date(Date.now() - 86_400_000)),
       render: () => (
         <div className="space-y-6">
-          <div>
-            <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">
-              When do contributions close?
-            </h1>
-            <p className="text-foreground-muted mt-3 text-base leading-relaxed">
-              After the deadline, the project moves into training automatically. You can extend it
-              later if contributors need more time.
-            </p>
-          </div>
+          {state.fineTuneAlone ? (
+            <>
+              <div>
+                <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">
+                  No contribution deadline needed.
+                </h1>
+                <p className="text-foreground-muted mt-3 text-base leading-relaxed">
+                  Since you&apos;re fine-tuning alone, there&apos;s no contributor window to manage.
+                  You can start the session as soon as your project is created.
+                </p>
+              </div>
 
-          <div className="space-y-3">
-            <Label htmlFor="deadline">Deadline</Label>
-            <div className="relative">
-              <Calendar className="text-foreground-subtle pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-              <Input
-                id="deadline"
-                type="date"
-                className="pl-9"
-                value={state.deadline}
-                min={isoNDaysFromNow(1)}
-                onChange={(e) => setState((s) => ({ ...s, deadline: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {[3, 7, 14, 30].map((d) => (
-                <Button
-                  key={d}
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setState((s) => ({ ...s, deadline: isoNDaysFromNow(d) }))}
-                >
-                  +{d} days
-                </Button>
-              ))}
-            </div>
-            {state.deadline && (
-              <p className="text-foreground-subtle text-xs">
-                Closes {humanizeDelta(state.deadline)} · {state.deadline}
-              </p>
-            )}
-          </div>
+              <div className="border-border bg-surface-muted/40 rounded-[var(--radius-lg)] border p-5">
+                <p className="text-foreground text-sm font-medium tracking-tight">
+                  Solo projects skip contribution scheduling
+                </p>
+                <p className="text-foreground-muted mt-1 text-sm leading-relaxed">
+                  We&apos;ll take you straight to the project after setup, with no closing date,
+                  invite window, or contributor countdown.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">
+                  When do contributions close?
+                </h1>
+                <p className="text-foreground-muted mt-3 text-base leading-relaxed">
+                  After the deadline, the project moves into training automatically. You can extend
+                  it later if contributors need more time.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="deadline">Deadline</Label>
+                <div className="relative">
+                  <Calendar className="text-foreground-subtle pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                  <Input
+                    id="deadline"
+                    type="date"
+                    className="pl-9"
+                    value={state.deadline}
+                    min={isoNDaysFromNow(1)}
+                    onChange={(e) => setState((s) => ({ ...s, deadline: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {[3, 7, 14, 30].map((d) => (
+                    <Button
+                      key={d}
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setState((s) => ({ ...s, deadline: isoNDaysFromNow(d) }))}
+                    >
+                      +{d} days
+                    </Button>
+                  ))}
+                </div>
+                {state.deadline && (
+                  <p className="text-foreground-subtle text-xs">
+                    Closes {humanizeDelta(state.deadline)} · {state.deadline}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
         </div>
       ),
     },
