@@ -18,6 +18,7 @@ const STAGE_LABEL: Record<ProjectStage, string> = {
 interface ProgressBarProps {
   stage: ProjectStage;
   className?: string;
+  stageLabels?: Partial<Record<ProjectStage, string>>;
 }
 
 /**
@@ -26,7 +27,7 @@ interface ProgressBarProps {
  *
  *   waiting → checking → training → ready
  */
-export function ProgressBar({ stage, className }: ProgressBarProps) {
+export function ProgressBar({ stage, className, stageLabels }: ProgressBarProps) {
   const stageIndex = PROJECT_STAGES.indexOf(stage);
   const fillPercent = ((stageIndex + 1) / PROJECT_STAGES.length) * 100;
 
@@ -81,7 +82,7 @@ export function ProgressBar({ stage, className }: ProgressBarProps) {
                   state === "pending" && "text-foreground-subtle",
                 )}
               >
-                {STAGE_LABEL[s]}
+                {stageLabels?.[s] ?? STAGE_LABEL[s]}
               </span>
             </li>
           );

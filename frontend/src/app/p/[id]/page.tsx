@@ -418,7 +418,9 @@ export default function ProjectDashboardPage() {
           const isReady = project.stage === "ready";
           const headline = isDraft
             ? isOwner
-              ? "Collect contributor wallets."
+              ? isSoloProject
+                ? "Start your finetuning session."
+                : "Collect contributor wallets."
               : me.registeredAt
                 ? "You're registered."
                 : "Register from the invite link."
@@ -429,7 +431,9 @@ export default function ProjectDashboardPage() {
                 : `Status: ${me.status.replace(/-/g, " ")}`;
           const sub = isDraft
             ? isOwner
-              ? "Share the invite link, then start the on-chain session when enough people are ready."
+              ? isSoloProject
+                ? "Your wallet is already connected. Open the session whenever you want to begin uploading data."
+                : "Share the invite link, then start the on-chain session when enough people are ready."
               : me.registeredAt
                 ? "The owner can start finetuning once the team is ready."
                 : "Open the invite link to connect your wallet and register your training key."
@@ -439,16 +443,20 @@ export default function ProjectDashboardPage() {
                 ? "Try the new model side-by-side and vote."
                 : "We'll update you when the project changes stage.";
           const ctaHref = isDraft
-            ? `/join?code=${project.inviteCode}`
+            ? isSoloProject
+              ? `/p/${project.id}`
+              : `/join?code=${project.inviteCode}`
             : isReady
               ? `/p/${project.id}/result`
               : `/p/${project.id}/contribute`;
           const ctaLabel = isDraft
-            ? "Open invite"
+            ? isSoloProject
+              ? "Start session"
+              : "Open invite"
             : isReady
               ? "Try the new version"
               : "Go contribute";
-          const ctaIcon = isReady ? Sparkles : Upload;
+          const ctaIcon = isDraft && isSoloProject ? Play : isReady ? Sparkles : Upload;
 
           return (
             <motion.section
@@ -596,7 +604,10 @@ export default function ProjectDashboardPage() {
             </div>
           )}
 
-          <ProgressBar stage={project.stage} />
+          <ProgressBar
+            stage={project.stage}
+            stageLabels={isSoloProject ? { waiting: "Prepare your data" } : undefined}
+          />
 
           {project.chainSession && (
             <div className="border-border bg-surface-muted/40 mt-5 grid gap-3 rounded-[var(--radius-md)] border p-4 text-xs sm:grid-cols-4">
@@ -640,7 +651,13 @@ export default function ProjectDashboardPage() {
               {
                 ok: uploaded === total,
                 warn: uploaded > 0 && uploaded < total,
-                label: `${uploaded} of ${total} contributors uploaded`,
+                label: isSoloProject
+                  ? uploaded === 0
+                    ? "Your upload has not started"
+                    : uploaded === total
+                      ? "Your upload is ready"
+                      : `Upload progress: ${uploaded} of ${total}`
+                  : `${uploaded} of ${total} contributors uploaded`,
               },
               {
                 ok: mustPassSet,
@@ -711,7 +728,7 @@ export default function ProjectDashboardPage() {
         <section className="border-border bg-surface mt-6 rounded-[var(--radius-lg)] border">
           <header className="border-border flex items-center justify-between border-b px-6 py-4">
             <h2 className="text-sm font-medium tracking-tight">
-              Contributors
+              {isSoloProject ? "Trainer" : "Contributors"}
               <span className="text-foreground-subtle ml-2 font-normal">
                 {project.contributors.length}
               </span>
