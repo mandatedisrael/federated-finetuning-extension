@@ -24,6 +24,12 @@ export interface OrchestratorConfig {
   targetSessionId?: bigint;
   /** Optional failure hook for one-shot runners */
   onSessionError?: (sessionId: bigint, error: Error) => void;
+  /** Optional runtime stage hook for dashboards or local status bridges */
+  onSessionStage?: (
+    sessionId: bigint,
+    stage: "training" | "ready" | "failed",
+    details?: { error?: string; txHash?: string }
+  ) => void;
 }
 
 export interface OrchestratorState {
@@ -109,6 +115,7 @@ async function handleQuorumReachedEvent(
     console.log(
       `[Orchestrator] Processing QuorumReached for session ${sessionId} (${payload.submitters.length} submitters)`
     );
+    config.onSessionStage?.(sessionId, "training");
 
     // A.3: Download and decrypt blobs
     console.log(`[Orchestrator] A.3: Downloading and decrypting blobs for session ${sessionId}`);
@@ -171,6 +178,7 @@ async function handleQuorumReachedEvent(
       });
 
       console.log(`[Orchestrator] Session ${sessionId} complete: txHash=${mintResult.txHash}`);
+      config.onSessionStage?.(sessionId, "ready", {txHash: mintResult.txHash});
     } finally {
       // Clean up JSONL file
       await cleanupBlobJsonl(blobResult.jsonlPath);
@@ -182,6 +190,7 @@ async function handleQuorumReachedEvent(
       error,
       timestamp: new Date(),
     });
+    config.onSessionStage?.(sessionId, "failed", {error: error.message});
     config.onSessionError?.(sessionId, error);
     throw error;
   } finally {

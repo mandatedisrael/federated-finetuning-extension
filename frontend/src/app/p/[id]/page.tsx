@@ -351,6 +351,101 @@ function TrainingShowcase({
   );
 }
 
+function FailedTrainingShowcase({
+  project,
+  sessionStatus,
+}: {
+  project: Project;
+  sessionStatus: FfeSessionStatusResult | null;
+}) {
+  const diagnostics = [
+    `Session #${project.chainSession?.sessionId ?? "—"} reached quorum and entered training.`,
+    "The aggregator completed the live run but failed while fetching or sealing the delivered LoRA artifact.",
+    "Your uploaded data remains recorded on-chain, but the trained model has not been finalized yet.",
+  ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+      className="relative mt-5 overflow-hidden rounded-[var(--radius-lg)] border border-[#fed7aa] bg-[#1c1110] p-5 text-white shadow-[0_24px_80px_rgba(249,115,22,0.16)]"
+    >
+      <motion.div
+        className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(251,191,36,0.9),transparent)]"
+        animate={{ opacity: [0.3, 1, 0.3] }}
+        transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      <div className="relative z-10 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/5 p-4">
+          <div className="flex items-center gap-3">
+            <motion.div
+              className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/10"
+              animate={{ scale: [1, 1.06, 1] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <AlertCircle className="h-5 w-5 text-amber-200" />
+            </motion.div>
+            <div>
+              <Badge className="border-amber-200/10 bg-amber-200/10 text-amber-50">
+                Training interrupted
+              </Badge>
+              <h3 className="mt-2 text-lg font-medium tracking-tight">
+                The model run needs attention before delivery can finish.
+              </h3>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {diagnostics.map((line, index) => (
+              <div key={line} className="flex items-start gap-3">
+                <motion.span
+                  className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-amber-300"
+                  animate={{ opacity: [0.45, 1, 0.45] }}
+                  transition={{ duration: 1.8, repeat: Infinity, delay: index * 0.12 }}
+                />
+                <p className="text-sm leading-relaxed text-white/78">{line}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid content-start gap-3">
+          <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/6 px-4 py-3">
+            <p className="text-[10px] tracking-[0.18em] text-white/55 uppercase">
+              Latest backend status
+            </p>
+            <p className="mt-2 text-sm font-medium tracking-tight text-white">
+              {sessionStatus?.failureReason ?? "The aggregator reported a delivery failure."}
+            </p>
+          </div>
+          <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/6 px-4 py-3">
+            <p className="text-[10px] tracking-[0.18em] text-white/55 uppercase">What this means</p>
+            <p className="mt-2 text-sm leading-relaxed text-white/72">
+              The UI is now showing the real backend state. This run will not move to Ready until
+              the artifact download and final mint handoff complete cleanly.
+            </p>
+          </div>
+          {sessionStatus?.runtimeUpdatedAt && (
+            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/6 px-4 py-3">
+              <p className="text-[10px] tracking-[0.18em] text-white/55 uppercase">
+                Last update
+              </p>
+              <p className="mt-2 text-sm font-medium tracking-tight text-white">
+                {new Date(sessionStatus.runtimeUpdatedAt).toLocaleString([], {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function ProjectDashboardPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -395,7 +490,7 @@ export default function ProjectDashboardPage() {
             if (cancelled) return;
             setSessionStatus(status);
             const latest = projectStore.get(id);
-            if (!latest || latest.stage === "ready") return;
+            if (!latest || (latest.stage === "ready" && status.stage !== "failed")) return;
             const updated = projectStore.update(id, { stage: status.stage });
             if (updated) {
               setProject(updated);
@@ -617,6 +712,7 @@ export default function ProjectDashboardPage() {
           const isWaitingOnYou =
             !isDraft && project.stage === "waiting" && me.status === "not-started";
           const isTrainingStage = project.stage === "training";
+          const isFailedStage = project.stage === "failed";
           const isReady = project.stage === "ready";
           const headline = isDraft
             ? isOwner
@@ -628,6 +724,8 @@ export default function ProjectDashboardPage() {
                 : "Register from the invite link."
             : isTrainingStage
               ? "Training is underway."
+              : isFailedStage
+                ? "Training needs attention."
               : isWaitingOnYou
                 ? "You're up."
                 : isReady
@@ -636,13 +734,16 @@ export default function ProjectDashboardPage() {
           const sub = isDraft
             ? isOwner
               ? isSoloProject
-                ? "We&apos;ll open your private upload room and start the on-chain session in one step."
+                ? "We'll open your private upload room and start the on-chain session in one step."
                 : "Share the invite link, then start the on-chain session when enough people are ready."
               : me.registeredAt
                 ? "The owner can start finetuning once the team is ready."
                 : "Open the invite link to connect your wallet and register your training key."
             : isTrainingStage
-              ? "Your encrypted dataset is in the live run. We&apos;ll surface the next checkpoint as soon as it clears evaluation."
+              ? "Your encrypted dataset is in the live run. We'll surface the next checkpoint as soon as it clears evaluation."
+              : isFailedStage
+                ? sessionStatus?.failureReason ??
+                  "The backend run stopped before the trained model could be finalized."
               : isWaitingOnYou
                 ? "Add your training examples to keep the project moving."
                 : isReady
@@ -654,6 +755,8 @@ export default function ProjectDashboardPage() {
               : `/join?code=${project.inviteCode}`
             : isReady
               ? `/p/${project.id}/result`
+              : isFailedStage
+                ? null
               : `/p/${project.id}/contribute`;
           const ctaLabel = isDraft
             ? isSoloProject
@@ -661,6 +764,8 @@ export default function ProjectDashboardPage() {
               : "Open invite"
             : isTrainingStage
               ? "Training live"
+              : isFailedStage
+                ? "Run needs attention"
               : isReady
                 ? "Try the new version"
                 : "Go contribute";
@@ -701,6 +806,11 @@ export default function ProjectDashboardPage() {
               {isTrainingStage ? (
                 <Button disabled variant="secondary">
                   <Loader2 className="h-4 w-4 animate-spin" />
+                  {ctaLabel}
+                </Button>
+              ) : isFailedStage ? (
+                <Button disabled variant="secondary">
+                  <AlertCircle className="h-4 w-4" />
                   {ctaLabel}
                 </Button>
               ) : ctaHref ? (
@@ -770,7 +880,8 @@ export default function ProjectDashboardPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  const i = PROJECT_STAGES.indexOf(project.stage);
+                  const demoStage = project.stage === "failed" ? "training" : project.stage;
+                  const i = PROJECT_STAGES.indexOf(demoStage);
                   const next = PROJECT_STAGES[Math.min(i + 1, PROJECT_STAGES.length - 1)];
                   if (next) {
                     const updated = projectStore.update(project.id, { stage: next });
@@ -837,7 +948,7 @@ export default function ProjectDashboardPage() {
           )}
 
           <ProgressBar
-            stage={project.stage}
+            stage={project.stage === "failed" ? "training" : project.stage}
             stageLabels={isSoloProject ? { waiting: "Prepare your data" } : undefined}
           />
 
@@ -845,7 +956,11 @@ export default function ProjectDashboardPage() {
             <TrainingShowcase project={project} sessionStatus={sessionStatus} />
           )}
 
-          {project.chainSession && project.stage !== "training" && (
+          {project.stage === "failed" && (
+            <FailedTrainingShowcase project={project} sessionStatus={sessionStatus} />
+          )}
+
+          {project.chainSession && project.stage !== "training" && project.stage !== "failed" && (
             <div className="border-border bg-surface-muted/40 mt-5 grid gap-3 rounded-[var(--radius-md)] border p-4 text-xs sm:grid-cols-4">
               <div>
                 <p className="text-foreground-subtle tracking-widest uppercase">FFE session</p>

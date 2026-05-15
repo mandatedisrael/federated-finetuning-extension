@@ -15,7 +15,7 @@ export interface Template {
   icon: string;
 }
 
-export type ProjectStage = "waiting" | "checking" | "training" | "ready";
+export type ProjectStage = "waiting" | "checking" | "training" | "ready" | "failed";
 
 export type ContributionStatus =
   | "not-started"

@@ -1,4 +1,5 @@
 import { FFE, crypto } from "@notmartin/ffe";
+import { promises as fs } from "node:fs";
 import { OG_CHAIN } from "@/lib/og/chain";
 import type {
   CreateFfeProjectSessionInput,
@@ -23,9 +24,33 @@ interface FfeServerConfig {
   aggregatorPubkeyHex: `0x${string}`;
 }
 
+interface AggregatorRuntimeStatusFile {
+  updatedAt?: string;
+  sessions?: Record<
+    string,
+    {
+      stage?: "training" | "ready" | "failed";
+      updatedAt?: string;
+      txHash?: string;
+      error?: string;
+    }
+  >;
+}
+
 function env(name: string): string | undefined {
   const value = process.env[name]?.trim();
   return value ? value : undefined;
+}
+
+async function readAggregatorRuntimeSession(sessionId: string) {
+  const statusPath = env("FFE_AGGREGATOR_STATUS_PATH") ?? "/tmp/ffe-aggregator-status.json";
+  try {
+    const raw = await fs.readFile(statusPath, "utf8");
+    const parsed = JSON.parse(raw) as AggregatorRuntimeStatusFile;
+    return parsed.sessions?.[sessionId] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function requirePrivateKey(): `0x${string}` {
@@ -324,24 +349,38 @@ export async function prepareContribution(input: {
 export async function getSessionStatus(sessionIdInput: string): Promise<FfeSessionStatusResult> {
   const sessionId = BigInt(sessionIdInput);
   const ffe = createFfeClient();
-  const [session, participants, submitters] = await Promise.all([
+  const [session, participants, submitters, runtimeSession] = await Promise.all([
     ffe.coordinator.getSession(sessionId),
     ffe.coordinator.getParticipants(sessionId),
     ffe.coordinator.getSubmitters(sessionId),
+    readAggregatorRuntimeSession(sessionIdInput),
   ]);
   const status = session.status === 1 ? "quorum-reached" : "open";
   const submittedCount = Number(session.submittedCount);
   const quorum = Number(session.quorum);
+  const stage =
+    runtimeSession?.stage === "failed"
+      ? "failed"
+      : runtimeSession?.stage === "ready"
+        ? "ready"
+        : status === "quorum-reached"
+          ? "training"
+          : submittedCount > 0
+            ? "checking"
+            : "waiting";
 
   return {
     sessionId: sessionIdInput,
     status,
-    stage: status === "quorum-reached" ? "training" : submittedCount > 0 ? "checking" : "waiting",
+    stage,
     quorum,
     submittedCount,
     participants: [...participants],
     submitters: [...submitters],
     aggregatorPubkeySet: session.aggregatorPubkey !== "0x" && session.aggregatorPubkey.length > 2,
+    failureReason: runtimeSession?.error,
+    runtimeUpdatedAt: runtimeSession?.updatedAt,
+    mintTxHash: runtimeSession?.txHash,
   };
 }
 
