@@ -2,7 +2,12 @@ import {loadConfig} from "./config.js";
 import {startOrchestrator} from "./orchestrator.js";
 
 const config = loadConfig();
-const stop = startOrchestrator({config});
+const replayExistingSessions =
+  (process.env.FFE_REPLAY_EXISTING_SESSIONS ?? "false").toLowerCase() === "true";
+const stop = startOrchestrator({
+  config,
+  startFromCurrent: !replayExistingSessions,
+});
 
 console.log("[Aggregator] Service is running");
 

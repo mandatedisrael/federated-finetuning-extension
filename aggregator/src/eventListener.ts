@@ -27,17 +27,26 @@ export interface QuorumReachedPayload {
  * @param rpcUrl RPC endpoint for Galileo
  * @param pollIntervalMs Poll interval in milliseconds
  * @param onEvent Callback invoked each time a new QuorumReached event is discovered
+ * @param options Optional startup behavior controls
  * @returns AbortController to stop polling
  */
 export function startEventListener(
   coordinatorAddress: Address,
   rpcUrl: string,
   pollIntervalMs: number,
-  onEvent: (payload: QuorumReachedPayload) => Promise<void>
+  onEvent: (payload: QuorumReachedPayload) => Promise<void>,
+  options?: {
+    /**
+     * When true, the listener marks all sessions that already exist at startup
+     * as seen, so the service only reacts to sessions created afterward.
+     */
+    startFromCurrent?: boolean;
+  }
 ): AbortController {
   const seen = new Set<bigint>();
   const MAX_SEEN = 10_000;
   const controller = new AbortController();
+  let didSeedExistingSessions = false;
 
   const coordinatorClient = coordinator.createCoordinatorClient({
     address: coordinatorAddress,
@@ -50,6 +59,16 @@ export function startEventListener(
     try {
       // Poll nextSessionId to discover new sessions
       let nextSessionId = await coordinatorClient.nextSessionId();
+
+      if (options?.startFromCurrent && !didSeedExistingSessions) {
+        for (let sessionId = 0n; sessionId < nextSessionId; sessionId++) {
+          seen.add(sessionId);
+        }
+        didSeedExistingSessions = true;
+        console.log(
+          `[EventListener] Seeded ${nextSessionId} existing session(s); waiting for new sessions`
+        );
+      }
 
       // Check all sessions from 0 to nextSessionId-1
       for (let sessionId = 0n; sessionId < nextSessionId; sessionId++) {

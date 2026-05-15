@@ -18,6 +18,8 @@ import {
 export interface OrchestratorConfig {
   /** Aggregator configuration (loaded from env) */
   config: ReturnType<typeof loadConfig>;
+  /** Skip sessions that already existed when the service started */
+  startFromCurrent?: boolean;
   /** Optional session allow-list for one-shot runners */
   targetSessionId?: bigint;
   /** Optional failure hook for one-shot runners */
@@ -64,7 +66,10 @@ export function startOrchestrator(config: OrchestratorConfig): () => void {
         return;
       }
       await handleQuorumReachedEvent(payload, config, state);
-    }
+    },
+    config.startFromCurrent !== undefined
+      ? {startFromCurrent: config.startFromCurrent}
+      : undefined
   );
 
   // Return stop function

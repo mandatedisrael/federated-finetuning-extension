@@ -183,6 +183,11 @@ What this does:
 6. Uploads the encrypted LoRA artifact
 7. Mints an INFT with one sealed key per contributor
 
+By default, the service ignores sessions that already existed when it started,
+so it waits for new frontend-created work. Set
+`FFE_REPLAY_EXISTING_SESSIONS=true` if you intentionally want it to replay old
+quorum sessions.
+
 ### Useful Commands
 
 ```bash
