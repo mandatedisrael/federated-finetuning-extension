@@ -12,6 +12,7 @@ import { TrustBadge } from "@/components/domain/TrustBadge";
 import { AuthLinkButton } from "@/components/auth/AuthLinkButton";
 import { UserPill } from "@/components/auth/UserPill";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { ResumeProjectsSection } from "@/components/home/ResumeProjectsSection";
 import { CollaborativeAnimation } from "@/components/landing/CollaborativeAnimation";
 import { Reveal } from "@/components/landing/Reveal";
 
@@ -200,6 +201,8 @@ export default function LandingPage() {
           <CollaborativeAnimation />
         </Reveal>
       </section>
+
+      <ResumeProjectsSection />
 
       {/* How it works (3 cards) */}
       <section id="how" className="mx-auto w-full max-w-7xl px-6 py-20">

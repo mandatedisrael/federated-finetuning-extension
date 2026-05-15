@@ -157,6 +157,39 @@ export async function getProjectByInviteCodeFromSupabase(code: string) {
   return hydrateProject(data as ProjectRow);
 }
 
+export async function listProjectsForActorIdFromSupabase(actorId: string) {
+  const supabase = getSupabaseAdminClient();
+  const [ownedResult, contributorResult] = await Promise.all([
+    supabase.from("ffe_projects").select("id").eq("owner_privy_id", actorId).order("created_at", {
+      ascending: false,
+    }),
+    supabase.from("ffe_contributors").select("project_id").eq("id", actorId),
+  ]);
+
+  if (ownedResult.error) throw ownedResult.error;
+  if (contributorResult.error) throw contributorResult.error;
+
+  const projectIds = new Set<string>();
+  for (const row of ownedResult.data ?? []) {
+    if (typeof row.id === "string") projectIds.add(row.id);
+  }
+  for (const row of contributorResult.data ?? []) {
+    if (typeof row.project_id === "string") projectIds.add(row.project_id);
+  }
+
+  const projects = await Promise.all(
+    [...projectIds].map(async (projectId) => getProjectFromSupabase(projectId)),
+  );
+
+  return projects
+    .filter((project): project is Project => !!project)
+    .sort((a, b) => {
+      const aTime = new Date(a.createdAt).getTime();
+      const bTime = new Date(b.createdAt).getTime();
+      return bTime - aTime;
+    });
+}
+
 export async function registerContributorInSupabase(input: {
   projectId: string;
   inviteCode: string;

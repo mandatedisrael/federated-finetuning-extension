@@ -5,6 +5,10 @@ interface ProjectResponse {
   project: Project;
 }
 
+interface ProjectListResponse {
+  projects: Project[];
+}
+
 interface ApiErrorBody {
   error?: string;
 }
@@ -33,6 +37,11 @@ export async function updateProject(id: string, patch: Partial<Project>) {
 export async function loadProjectByInviteCode(code: string) {
   const result = await projectRequest(`/api/projects/invite/${encodeURIComponent(code.trim())}`);
   return cacheProjectWithLocalSecrets(result.project);
+}
+
+export async function listProjectsForActor(actorId: string) {
+  const result = await projectListRequest(`/api/projects?actorId=${encodeURIComponent(actorId)}`);
+  return result.projects.map((project) => cacheProjectWithLocalSecrets(project));
 }
 
 export async function registerProjectContributor(input: {
@@ -102,6 +111,21 @@ async function projectRequest(path: string, init?: RequestInit): Promise<Project
     throw new Error(body?.error ?? `Project request failed (${response.status})`);
   }
   return (await response.json()) as ProjectResponse;
+}
+
+async function projectListRequest(path: string, init?: RequestInit): Promise<ProjectListResponse> {
+  const response = await fetch(path, {
+    ...init,
+    headers: {
+      "content-type": "application/json",
+      ...init?.headers,
+    },
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
+    throw new Error(body?.error ?? `Project request failed (${response.status})`);
+  }
+  return (await response.json()) as ProjectListResponse;
 }
 
 function mergeLocalSecrets(remote: Project, local: Project): Project {
