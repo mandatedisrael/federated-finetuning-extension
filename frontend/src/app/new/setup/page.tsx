@@ -27,6 +27,7 @@ interface Invitee {
 interface WizardState {
   goal: string;
   invitees: Invitee[];
+  fineTuneAlone: boolean;
   deadline: string; // YYYY-MM-DD
   stakeUsd: number;
 }
@@ -91,6 +92,7 @@ function SetupWizardInner() {
   const [state, setState] = React.useState<WizardState>({
     goal: template?.goal ?? "",
     invitees: [newInvitee()],
+    fineTuneAlone: false,
     deadline: isoNDaysFromNow(DEFAULT_DAYS_OUT),
     stakeUsd: DEFAULT_STAKE_USD,
   });
@@ -141,7 +143,7 @@ function SetupWizardInner() {
     {
       id: "invite",
       label: "Invite",
-      isValid: () => validInvitees.length >= 1,
+      isValid: () => state.fineTuneAlone || validInvitees.length >= 1,
       render: () => (
         <div className="space-y-6">
           <div>
@@ -152,78 +154,125 @@ function SetupWizardInner() {
             </p>
           </div>
 
-          <div className="space-y-2">
-            <AnimatePresence initial={false}>
-              {state.invitees.map((inv) => (
-                <motion.div
-                  key={inv.id}
-                  layout
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  className="flex items-center gap-2"
-                >
-                  <Input
-                    value={inv.identifier}
-                    placeholder="alice@team.com or 0x…"
-                    onChange={(e) =>
-                      setState((s) => ({
-                        ...s,
-                        invitees: s.invitees.map((i) =>
-                          i.id === inv.id ? { ...i, identifier: e.target.value } : i,
-                        ),
-                      }))
-                    }
-                  />
-                  <select
-                    value={inv.role}
-                    onChange={(e) =>
-                      setState((s) => ({
-                        ...s,
-                        invitees: s.invitees.map((i) =>
-                          i.id === inv.id ? { ...i, role: e.target.value as Role } : i,
-                        ),
-                      }))
-                    }
-                    className="border-border bg-surface text-foreground hover:border-border-strong focus:border-accent focus:ring-accent/15 h-10 rounded-[var(--radius-md)] border px-2 text-sm focus:ring-2 focus:outline-none"
-                  >
-                    <option value="contributor">Contributor</option>
-                    <option value="owner">Co-owner</option>
-                  </select>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Remove invitee"
-                    disabled={state.invitees.length <= 1}
-                    onClick={() =>
-                      setState((s) => ({
-                        ...s,
-                        invitees: s.invitees.filter((i) => i.id !== inv.id),
-                      }))
-                    }
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            <Button
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
               type="button"
-              variant="ghost"
-              onClick={() => setState((s) => ({ ...s, invitees: [...s.invitees, newInvitee()] }))}
+              onClick={() => setState((s) => ({ ...s, fineTuneAlone: false }))}
+              className={`rounded-[var(--radius-lg)] border p-4 text-left transition ${
+                state.fineTuneAlone
+                  ? "border-border bg-surface hover:border-border-strong"
+                  : "border-accent bg-accent/5 shadow-[var(--shadow-sm)]"
+              }`}
             >
-              <Plus className="h-4 w-4" />
-              Add another
-            </Button>
+              <p className="text-foreground text-sm font-medium tracking-tight">Invite others</p>
+              <p className="text-foreground-muted mt-1 text-sm">
+                Bring in collaborators to contribute examples from their own wallets.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setState((s) => ({ ...s, fineTuneAlone: true }))}
+              className={`rounded-[var(--radius-lg)] border p-4 text-left transition ${
+                state.fineTuneAlone
+                  ? "border-accent bg-accent/5 shadow-[var(--shadow-sm)]"
+                  : "border-border bg-surface hover:border-border-strong"
+              }`}
+            >
+              <p className="text-foreground text-sm font-medium tracking-tight">Fine-tune alone</p>
+              <p className="text-foreground-muted mt-1 text-sm">
+                Start with just your own data and skip invites for this project.
+              </p>
+            </button>
           </div>
 
-          <p className="text-foreground-subtle text-xs">
-            {validInvitees.length} ready · {state.invitees.length - validInvitees.length} pending —
-            emails and wallets are both fine.
-          </p>
+          {state.fineTuneAlone ? (
+            <div className="border-border bg-surface-muted/40 rounded-[var(--radius-lg)] border p-4">
+              <p className="text-foreground text-sm font-medium tracking-tight">
+                Solo mode selected
+              </p>
+              <p className="text-foreground-muted mt-1 text-sm leading-relaxed">
+                We&apos;ll create the project with you as the only participant. You can still add
+                collaborators later from the project settings if you want backup examples.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <AnimatePresence initial={false}>
+                  {state.invitees.map((inv) => (
+                    <motion.div
+                      key={inv.id}
+                      layout
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                      className="flex items-center gap-2"
+                    >
+                      <Input
+                        value={inv.identifier}
+                        placeholder="alice@team.com or 0x…"
+                        onChange={(e) =>
+                          setState((s) => ({
+                            ...s,
+                            invitees: s.invitees.map((i) =>
+                              i.id === inv.id ? { ...i, identifier: e.target.value } : i,
+                            ),
+                          }))
+                        }
+                      />
+                      <select
+                        value={inv.role}
+                        onChange={(e) =>
+                          setState((s) => ({
+                            ...s,
+                            invitees: s.invitees.map((i) =>
+                              i.id === inv.id ? { ...i, role: e.target.value as Role } : i,
+                            ),
+                          }))
+                        }
+                        className="border-border bg-surface text-foreground hover:border-border-strong focus:border-accent focus:ring-accent/15 h-10 rounded-[var(--radius-md)] border px-2 text-sm focus:ring-2 focus:outline-none"
+                      >
+                        <option value="contributor">Contributor</option>
+                        <option value="owner">Co-owner</option>
+                      </select>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Remove invitee"
+                        disabled={state.invitees.length <= 1}
+                        onClick={() =>
+                          setState((s) => ({
+                            ...s,
+                            invitees: s.invitees.filter((i) => i.id !== inv.id),
+                          }))
+                        }
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() =>
+                    setState((s) => ({ ...s, invitees: [...s.invitees, newInvitee()] }))
+                  }
+                >
+                  <Plus className="h-4 w-4" />
+                  Add another
+                </Button>
+              </div>
+
+              <p className="text-foreground-subtle text-xs">
+                {validInvitees.length} ready · {state.invitees.length - validInvitees.length}{" "}
+                pending — emails and wallets are both fine.
+              </p>
+            </>
+          )}
         </div>
       ),
     },
