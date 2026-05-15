@@ -68,6 +68,7 @@ function ProjectCreatedInner() {
 
   const inviteUrl = `${origin}/join?code=${project.inviteCode}`;
   const invitees = project.contributors.filter((c) => c.role !== "owner");
+  const isSoloProject = invitees.length === 0;
 
   async function copy() {
     await navigator.clipboard.writeText(inviteUrl);
@@ -106,59 +107,62 @@ function ProjectCreatedInner() {
             Draft created
           </p>
           <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">
-            Share this with your contributors.
+            {isSoloProject ? "Your solo project is ready." : "Share this with your contributors."}
           </h1>
           <p className="text-foreground-muted mt-3 text-base leading-relaxed">
-            Anyone with this link can join, connect a wallet, and register their training key before
-            you start the on-chain finetuning session.
+            {isSoloProject
+              ? "You can open the project and start the on-chain finetuning session whenever you're ready."
+              : "Anyone with this link can join, connect a wallet, and register their training key before you start the on-chain finetuning session."}
           </p>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.28, duration: 0.32 }}
-          className="mt-8 space-y-3"
-        >
-          <Card className="overflow-hidden">
-            <CardContent className="flex items-center gap-2 p-3">
-              <code className="text-foreground-muted flex-1 truncate font-mono text-xs sm:text-sm">
-                {inviteUrl}
-              </code>
-              <Button onClick={copy} variant={copied ? "secondary" : "primary"} size="sm">
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                {copied ? "Copied" : "Copy"}
-              </Button>
-            </CardContent>
-          </Card>
+        {!isSoloProject && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.28, duration: 0.32 }}
+            className="mt-8 space-y-3"
+          >
+            <Card className="overflow-hidden">
+              <CardContent className="flex items-center gap-2 p-3">
+                <code className="text-foreground-muted flex-1 truncate font-mono text-xs sm:text-sm">
+                  {inviteUrl}
+                </code>
+                <Button onClick={copy} variant={copied ? "secondary" : "primary"} size="sm">
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {copied ? "Copied" : "Copy"}
+                </Button>
+              </CardContent>
+            </Card>
 
-          {invitees.length > 0 && (
-            <div className="border-border bg-surface-muted/40 flex items-center gap-3 rounded-[var(--radius-md)] border border-dashed p-3">
-              <AvatarStack size="sm" people={invitees.map((c) => ({ id: c.id, name: c.name }))} />
-              <p className="text-foreground-muted text-xs">
-                {(() => {
-                  const sent =
-                    project.inviteDeliveries?.filter((d) => d.status === "sent").length ?? 0;
-                  const preview =
-                    project.inviteDeliveries?.filter((d) => d.status === "preview").length ?? 0;
-                  const failed =
-                    project.inviteDeliveries?.filter((d) => d.status === "failed").length ?? 0;
-                  if (sent > 0)
-                    return `Invite email sent to ${sent} ${sent === 1 ? "person" : "people"}.`;
-                  if (preview > 0)
-                    return `${preview} invite ${preview === 1 ? "email is" : "emails are"} ready, but no email provider is configured.`;
-                  if (failed > 0)
-                    return `${failed} invite ${failed === 1 ? "email" : "emails"} failed to send.`;
-                  return `Invite link ready for ${invitees.length} ${invitees.length === 1 ? "person" : "people"}.`;
-                })()}
-              </p>
-              <Button variant="ghost" size="sm" className="ml-auto" disabled>
-                <Mail className="h-3.5 w-3.5" />
-                {project.inviteDeliveries?.some((d) => d.status === "sent") ? "Sent" : "Ready"}
-              </Button>
-            </div>
-          )}
-        </motion.div>
+            {invitees.length > 0 && (
+              <div className="border-border bg-surface-muted/40 flex items-center gap-3 rounded-[var(--radius-md)] border border-dashed p-3">
+                <AvatarStack size="sm" people={invitees.map((c) => ({ id: c.id, name: c.name }))} />
+                <p className="text-foreground-muted text-xs">
+                  {(() => {
+                    const sent =
+                      project.inviteDeliveries?.filter((d) => d.status === "sent").length ?? 0;
+                    const preview =
+                      project.inviteDeliveries?.filter((d) => d.status === "preview").length ?? 0;
+                    const failed =
+                      project.inviteDeliveries?.filter((d) => d.status === "failed").length ?? 0;
+                    if (sent > 0)
+                      return `Invite email sent to ${sent} ${sent === 1 ? "person" : "people"}.`;
+                    if (preview > 0)
+                      return `${preview} invite ${preview === 1 ? "email is" : "emails are"} ready, but no email provider is configured.`;
+                    if (failed > 0)
+                      return `${failed} invite ${failed === 1 ? "email" : "emails"} failed to send.`;
+                    return `Invite link ready for ${invitees.length} ${invitees.length === 1 ? "person" : "people"}.`;
+                  })()}
+                </p>
+                <Button variant="ghost" size="sm" className="ml-auto" disabled>
+                  <Mail className="h-3.5 w-3.5" />
+                  {project.inviteDeliveries?.some((d) => d.status === "sent") ? "Sent" : "Ready"}
+                </Button>
+              </div>
+            )}
+          </motion.div>
+        )}
 
         <motion.div
           initial={{ opacity: 0 }}
@@ -167,8 +171,11 @@ function ProjectCreatedInner() {
           className="mt-10 flex items-center justify-between"
         >
           <p className="text-foreground-subtle text-xs">
-            Deadline: {project.deadline}
-            {project.chainSession ? ` · FFE session #${project.chainSession.sessionId}` : ""}
+            {isSoloProject
+              ? project.chainSession
+                ? `FFE session #${project.chainSession.sessionId}`
+                : "Ready to start your session"
+              : `Deadline: ${project.deadline}${project.chainSession ? ` · FFE session #${project.chainSession.sessionId}` : ""}`}
           </p>
           <Button asChild>
             <Link href={`/p/${project.id}`}>
