@@ -5,7 +5,14 @@ import { useWallets } from "@privy-io/react-auth";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion } from "motion/react";
-import { AlertCircle, ArrowLeft, Calendar, ShieldCheck } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Calendar,
+  ShieldCheck,
+  CheckCircle2,
+  Loader2 as Spinner,
+} from "lucide-react";
 import { TrustBadge } from "@/components/domain/TrustBadge";
 import { UserPill } from "@/components/auth/UserPill";
 import { StatusChip } from "@/components/domain/StatusChip";
@@ -123,6 +130,14 @@ export default function ContributePage() {
 }
 
 type UploadPhase = "idle" | "scanning" | "review" | "submitting" | "done";
+type UploadTimelineStatus = "pending" | "active" | "done" | "error";
+
+interface UploadTimelineEntry {
+  id: string;
+  title: string;
+  detail: string;
+  status: UploadTimelineStatus;
+}
 
 function UploadFlow({ projectId }: { projectId: string }) {
   const { user } = useAuth();
@@ -132,6 +147,18 @@ function UploadFlow({ projectId }: { projectId: string }) {
   const [report, setReport] = React.useState<ConciergeReport | null>(null);
   const [submit, setSubmit] = React.useState<SubmitPhase>("idle");
   const [error, setError] = React.useState<string | null>(null);
+  const [timeline, setTimeline] = React.useState<UploadTimelineEntry[]>([]);
+
+  function replaceTimeline(next: UploadTimelineEntry[]) {
+    setTimeline(next);
+  }
+
+  function updateTimeline(
+    id: string,
+    patch: Partial<Pick<UploadTimelineEntry, "status" | "detail" | "title">>,
+  ) {
+    setTimeline((prev) => prev.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)));
+  }
 
   async function handleFiles(next: File[]) {
     setFiles(next);
@@ -148,6 +175,7 @@ function UploadFlow({ projectId }: { projectId: string }) {
     setPhase("idle");
     setSubmit("idle");
     setError(null);
+    setTimeline([]);
   }
 
   async function handleSubmit() {
@@ -164,10 +192,44 @@ function UploadFlow({ projectId }: { projectId: string }) {
     setPhase("submitting");
     setSubmit("encrypting");
     setError(null);
+    replaceTimeline([
+      {
+        id: "prepare",
+        title: "Preparing your training data",
+        detail: "Reading the selected files and shaping them into the training payload.",
+        status: "active",
+      },
+      {
+        id: "encrypt",
+        title: "Encrypting locally",
+        detail: "Locking the payload in your browser before it leaves this page.",
+        status: "pending",
+      },
+      {
+        id: "upload",
+        title: "Uploading to 0G Storage",
+        detail: "Sending the encrypted bundle to decentralized storage.",
+        status: "pending",
+      },
+      {
+        id: "submit",
+        title: "Recording the contribution",
+        detail: "Finalizing the contribution receipt for the finetuning session.",
+        status: "pending",
+      },
+    ]);
 
     try {
       const payloadFiles = await filesToFfePayload(files);
+      updateTimeline("prepare", {
+        status: "done",
+        detail: `${payloadFiles.length} ${payloadFiles.length === 1 ? "file" : "files"} prepared for submission.`,
+      });
+      updateTimeline("encrypt", { status: "active" });
+      await new Promise((r) => setTimeout(r, 250));
+      updateTimeline("encrypt", { status: "done" });
       setSubmit("uploading");
+      updateTimeline("upload", { status: "active" });
       const contributor = {
         id: user?.id ?? "anonymous",
         name: user?.displayName ?? "Contributor",
@@ -214,6 +276,8 @@ function UploadFlow({ projectId }: { projectId: string }) {
             usableCount: report.usableCount,
             files: payloadFiles,
           });
+      updateTimeline("upload", { status: "done" });
+      updateTimeline("submit", { status: "active" });
       setSubmit("submitted");
 
       if (p) {
@@ -234,12 +298,30 @@ function UploadFlow({ projectId }: { projectId: string }) {
         );
       }
 
+      updateTimeline("submit", {
+        status: "done",
+        detail: `Contribution recorded${receipt.submitTxHash ? " and transaction submitted." : "."}`,
+      });
+
       await new Promise((r) => setTimeout(r, 600));
       setPhase("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not submit this contribution.");
       setSubmit("idle");
       setPhase("review");
+      setTimeline((prev) => {
+        const activeId = prev.find((entry) => entry.status === "active")?.id;
+        return prev.map((entry) =>
+          entry.id === activeId
+            ? {
+                ...entry,
+                status: "error",
+                detail:
+                  err instanceof Error ? err.message : "Something went wrong during submission.",
+              }
+            : entry,
+        );
+      });
     }
   }
 
@@ -301,6 +383,7 @@ function UploadFlow({ projectId }: { projectId: string }) {
       {(phase === "submitting" || phase === "done") && (
         <div className="border-border bg-surface flex flex-col items-center gap-5 rounded-[var(--radius-lg)] border p-10 text-center">
           <SubmitStateMachine phase={submit} />
+          {timeline.length > 0 && <UploadTimeline entries={timeline} />}
           {phase === "done" ? (
             <>
               <div>
@@ -326,6 +409,50 @@ function UploadFlow({ projectId }: { projectId: string }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function UploadTimeline({ entries }: { entries: UploadTimelineEntry[] }) {
+  return (
+    <div className="w-full max-w-2xl rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface-muted)]/35 px-4 py-4 text-left">
+      <p className="text-foreground-subtle mb-3 text-[10px] tracking-widest uppercase">
+        Activity timeline
+      </p>
+      <ol className="space-y-3">
+        {entries.map((entry, index) => (
+          <li key={entry.id} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <span
+                className={`mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs ${
+                  entry.status === "done"
+                    ? "border-status-success/30 text-status-success bg-[var(--status-success-bg)]"
+                    : entry.status === "active"
+                      ? "border-accent/30 bg-accent/10 text-accent"
+                      : entry.status === "error"
+                        ? "border-status-danger/30 text-status-danger bg-[var(--status-danger-bg)]"
+                        : "border-border bg-surface text-foreground-subtle"
+                }`}
+              >
+                {entry.status === "done" ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                ) : entry.status === "active" ? (
+                  <Spinner className="h-3.5 w-3.5 animate-spin" />
+                ) : entry.status === "error" ? (
+                  <AlertCircle className="h-3.5 w-3.5" />
+                ) : (
+                  index + 1
+                )}
+              </span>
+              {index < entries.length - 1 && <span className="bg-border mt-1 h-6 w-px" />}
+            </div>
+            <div className="min-w-0 pb-2">
+              <p className="text-foreground text-sm font-medium tracking-tight">{entry.title}</p>
+              <p className="text-foreground-muted mt-1 text-xs leading-relaxed">{entry.detail}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
