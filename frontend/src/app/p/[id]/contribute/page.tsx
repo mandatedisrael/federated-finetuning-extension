@@ -11,7 +11,6 @@ import { UserPill } from "@/components/auth/UserPill";
 import { StatusChip } from "@/components/domain/StatusChip";
 import { Badge } from "@/components/ui/Badge";
 import { UploadZone } from "@/components/contribute/UploadZone";
-import { DataConciergeRow } from "@/components/domain/DataConciergeRow";
 import { scanFiles, type ConciergeReport } from "@/lib/mock/dataConcierge";
 import { Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -276,24 +275,6 @@ function UploadFlow({ projectId }: { projectId: string }) {
 
       {phase === "review" && report && (
         <div className="space-y-5">
-          <div className="space-y-2">
-            <div className="text-foreground-subtle px-1 text-xs tracking-widest uppercase">
-              Data Concierge
-            </div>
-            {report.findings.map((f) => (
-              <DataConciergeRow
-                key={f.id}
-                kind={f.kind}
-                count={f.count}
-                description={f.description}
-                actions={f.actions}
-                onAction={() => {
-                  // Mock: no-op. Real impl mutates the report.
-                }}
-              />
-            ))}
-          </div>
-
           <PreviewTable report={report} />
 
           <div className="border-border bg-surface flex flex-col items-center justify-between gap-3 rounded-[var(--radius-lg)] border p-4 sm:flex-row">
