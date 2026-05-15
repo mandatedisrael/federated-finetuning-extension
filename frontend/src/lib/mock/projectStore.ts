@@ -41,6 +41,9 @@ export interface CreateProjectInput {
   ownerName: string;
   ownerEmail: string;
   ownerWalletAddress?: string;
+  ownerFfePublicKey?: string;
+  ownerFfePrivateKey?: string;
+  ownerRegisteredAt?: string;
   invitees: Array<{ identifier: string; role: Role }>;
   deadline: string;
   stakeUsd: number;
@@ -89,6 +92,9 @@ export const projectStore = {
       status: "not-started",
       exampleCount: 0,
       walletAddress: input.ownerWalletAddress,
+      ffePublicKey: input.ownerFfePublicKey,
+      ffePrivateKey: input.ownerFfePrivateKey,
+      registeredAt: input.ownerRegisteredAt,
     };
     const project: Project = {
       id,

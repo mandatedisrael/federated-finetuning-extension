@@ -50,6 +50,11 @@ import { getTemplate } from "@/lib/mock/templates";
 import type { FfeSessionStatusResult } from "@/lib/ffe/types";
 import type { Project } from "@/lib/mock/types";
 
+function isContributorRegistered(project: Project, contributorId: string) {
+  const contributor = project.contributors.find((entry) => entry.id === contributorId);
+  return !!(contributor?.walletAddress && contributor?.ffePublicKey && contributor?.registeredAt);
+}
+
 function ProjectSettingsButton({
   project,
   onUpdate,
@@ -202,8 +207,16 @@ export default function ProjectDashboardPage() {
       }
     }
     void loadCurrentProject();
+    const refreshInterval = window.setInterval(() => {
+      loadProject(id)
+        .then((remote) => {
+          if (!cancelled) setProject(remote);
+        })
+        .catch(() => undefined);
+    }, 5000);
     return () => {
       cancelled = true;
+      window.clearInterval(refreshInterval);
     };
   }, [params?.id]);
 
@@ -227,6 +240,21 @@ export default function ProjectDashboardPage() {
   const invitedContributors = project.contributors.filter(
     (contributor) => contributor.role !== "owner",
   );
+  const latestAcceptedInvite = isOwner
+    ? project.activityEvents?.find((event) => {
+        if (event.type !== "contributor.registered") return false;
+        const contributorId =
+          typeof event.payload?.contributorId === "string" ? event.payload.contributorId : "";
+        const contributor = project.contributors.find((entry) => entry.id === contributorId);
+        return contributor?.role === "contributor";
+      })
+    : undefined;
+  const latestAcceptedContributor =
+    latestAcceptedInvite && typeof latestAcceptedInvite.payload?.contributorId === "string"
+      ? project.contributors.find(
+          (entry) => entry.id === latestAcceptedInvite.payload?.contributorId,
+        )
+      : undefined;
 
   async function startFfeSession() {
     if (!project || !user) return;
@@ -469,6 +497,32 @@ export default function ProjectDashboardPage() {
           );
         })()}
 
+        {isOwner && latestAcceptedContributor && latestAcceptedInvite && (
+          <motion.section
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.14, duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            className="border-border bg-surface mt-4 flex items-start justify-between gap-3 rounded-[var(--radius-lg)] border p-4"
+          >
+            <div>
+              <p className="text-foreground-subtle text-[10px] tracking-wider uppercase">
+                Invite accepted
+              </p>
+              <p className="text-foreground mt-1 text-sm font-medium tracking-tight">
+                {latestAcceptedContributor.name} connected a wallet and is ready for the session.
+              </p>
+              <p className="text-foreground-muted mt-1 text-xs">
+                Accepted{" "}
+                {new Date(latestAcceptedInvite.createdAt).toLocaleString([], {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+              </p>
+            </div>
+            <Badge tone="success">Ready</Badge>
+          </motion.section>
+        )}
+
         <section className="border-border bg-surface mt-6 rounded-[var(--radius-lg)] border p-6">
           <div className="mb-4 flex items-center justify-between gap-2">
             <h2 className="text-sm font-medium tracking-tight">Progress</h2>
@@ -657,6 +711,8 @@ export default function ProjectDashboardPage() {
           <ul className="divide-border divide-y">
             {project.contributors.map((c) => {
               const isYou = user?.id === c.id;
+              const isDraftRegistered =
+                !project.chainSession && isContributorRegistered(project, c.id);
               return (
                 <li key={c.id} className="flex items-center gap-3 px-6 py-3">
                   <AvatarStack size="sm" people={[{ id: c.id, name: c.name }]} />
@@ -675,7 +731,15 @@ export default function ProjectDashboardPage() {
                   <span className="text-foreground-subtle text-xs tabular-nums">
                     {c.exampleCount > 0 ? `${c.exampleCount} examples` : "—"}
                   </span>
-                  <StatusChip status={c.status} />
+                  {isDraftRegistered ? (
+                    <Badge tone="success">Ready</Badge>
+                  ) : !project.chainSession ? (
+                    <Badge tone="neutral" outline>
+                      Pending
+                    </Badge>
+                  ) : (
+                    <StatusChip status={c.status} />
+                  )}
                 </li>
               );
             })}

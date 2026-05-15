@@ -75,7 +75,8 @@ function JoinInner() {
             user.walletAddress &&
             candidate.address.toLowerCase() === user.walletAddress.toLowerCase(),
         ) ?? wallets.find((candidate) => candidate.type === "ethereum");
-      if (!wallet) {
+      const walletAddress = wallet?.address ?? user.walletAddress;
+      if (!walletAddress) {
         setError("Connect a wallet so this project can register your training key.");
         setBusy(false);
         return;
@@ -90,7 +91,7 @@ function JoinInner() {
         matched.contributors.find(
           (contributor) =>
             contributor.walletAddress &&
-            contributor.walletAddress.toLowerCase() === wallet.address.toLowerCase(),
+            contributor.walletAddress.toLowerCase() === walletAddress.toLowerCase(),
         ) ??
         matched.contributors.find(
           (contributor) => contributor.role !== "owner" && !contributor.registeredAt,
@@ -107,7 +108,7 @@ function JoinInner() {
         userId: user.id,
         displayName: user.displayName,
         email: user.email,
-        walletAddress: wallet.address,
+        walletAddress,
         ffePublicKey: keys.publicKey,
         ffePrivateKey: keys.privateKey,
       }).catch(() => null);
@@ -118,7 +119,7 @@ function JoinInner() {
               id: user.id,
               name: user.displayName || contributor.name,
               email: user.email || contributor.email,
-              walletAddress: wallet.address,
+              walletAddress,
               ffePublicKey: keys.publicKey,
               ffePrivateKey: keys.privateKey,
               registeredAt: new Date().toISOString(),

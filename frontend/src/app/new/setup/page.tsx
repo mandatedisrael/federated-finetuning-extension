@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { getTemplate } from "@/lib/mock/templates";
 import { projectStore } from "@/lib/mock/projectStore";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { createBrowserFfeKeyPair } from "@/lib/ffe/keys";
 import { sendProjectInvites } from "@/lib/notify/inviteDelivery";
 import { saveProject, updateProject } from "@/lib/projects/client";
 import type { Role } from "@/lib/mock/types";
@@ -331,6 +332,8 @@ function SetupWizardInner() {
     setCreationError(null);
 
     try {
+      const ownerKeys = user.walletAddress ? createBrowserFfeKeyPair() : null;
+      const ownerRegisteredAt = user.walletAddress ? new Date().toISOString() : undefined;
       const invitees = validInvitees.map((i) => ({
         identifier: i.identifier.trim(),
         role: i.role,
@@ -343,6 +346,9 @@ function SetupWizardInner() {
         ownerName: user.displayName,
         ownerEmail: user.email,
         ownerWalletAddress: user.walletAddress || undefined,
+        ownerFfePublicKey: ownerKeys?.publicKey,
+        ownerFfePrivateKey: ownerKeys?.privateKey,
+        ownerRegisteredAt,
         invitees,
         deadline: state.deadline,
         stakeUsd: state.stakeUsd,

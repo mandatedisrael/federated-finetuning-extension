@@ -3,6 +3,7 @@ import type {
   Contributor,
   MustPassScenario,
   Project,
+  ProjectActivityEvent,
   ProjectChainParticipant,
   ProjectChainSession,
   ProjectInviteDelivery,
@@ -96,6 +97,14 @@ interface VersionRow {
   contributor_ids: string[];
   vote_summary?: ProjectVersion["voteSummary"] | null;
   overridden?: boolean | null;
+}
+
+interface ProjectEventRow {
+  id: string;
+  event_type: string;
+  actor_privy_id?: string | null;
+  payload?: JsonRecord | null;
+  created_at: string;
 }
 
 export function hasProjectDatabase() {
@@ -317,6 +326,7 @@ async function hydrateProject(row: ProjectRow): Promise<Project> {
     participantsResult,
     receiptsResult,
     deliveriesResult,
+    eventsResult,
   ] = await Promise.all([
     supabase.from("ffe_contributors").select("*").eq("project_id", row.id).order("created_at"),
     supabase.from("ffe_must_pass_scenarios").select("*").eq("project_id", row.id).order("position"),
@@ -337,6 +347,11 @@ async function hydrateProject(row: ProjectRow): Promise<Project> {
       .eq("project_id", row.id)
       .order("submitted_at"),
     supabase.from("ffe_invite_deliveries").select("*").eq("project_id", row.id).order("sent_at"),
+    supabase
+      .from("ffe_project_events")
+      .select("*")
+      .eq("project_id", row.id)
+      .order("created_at", { ascending: false }),
   ]);
 
   for (const result of [
@@ -347,6 +362,7 @@ async function hydrateProject(row: ProjectRow): Promise<Project> {
     participantsResult,
     receiptsResult,
     deliveriesResult,
+    eventsResult,
   ]) {
     if (result.error) throw result.error;
   }
@@ -375,6 +391,7 @@ async function hydrateProject(row: ProjectRow): Promise<Project> {
     inviteDeliveries: ((deliveriesResult.data ?? []) as InviteDeliveryRow[]).map(
       rowToInviteDelivery,
     ),
+    activityEvents: ((eventsResult.data ?? []) as ProjectEventRow[]).map(rowToProjectEvent),
   };
 }
 
@@ -594,5 +611,15 @@ function rowToInviteDelivery(row: InviteDeliveryRow): ProjectInviteDelivery {
     messageId: row.message_id ?? undefined,
     error: row.error ?? undefined,
     sentAt: row.sent_at,
+  };
+}
+
+function rowToProjectEvent(row: ProjectEventRow): ProjectActivityEvent {
+  return {
+    id: row.id,
+    type: row.event_type,
+    actorPrivyId: row.actor_privy_id ?? undefined,
+    createdAt: row.created_at,
+    payload: row.payload ?? undefined,
   };
 }

@@ -79,6 +79,7 @@ export interface Project {
   chainSession?: ProjectChainSession;
   submissionReceipts?: ProjectSubmissionReceipt[];
   inviteDeliveries?: ProjectInviteDelivery[];
+  activityEvents?: ProjectActivityEvent[];
 }
 
 export interface ProjectInviteDelivery {
@@ -87,6 +88,14 @@ export interface ProjectInviteDelivery {
   messageId?: string;
   error?: string;
   sentAt: string;
+}
+
+export interface ProjectActivityEvent {
+  id: string;
+  type: string;
+  actorPrivyId?: string;
+  createdAt: string;
+  payload?: Record<string, unknown>;
 }
 
 export interface ProjectChainSession {
