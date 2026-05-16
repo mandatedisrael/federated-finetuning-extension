@@ -1079,7 +1079,7 @@ export default function ProjectDashboardPage() {
                   : "We'll update you when the project changes stage.";
           const ctaHref = isDraft
             ? isSoloProject
-              ? null
+              ? `/p/${project.id}/contribute`
               : `/join?code=${project.inviteCode}`
             : isReady
               ? `/p/${project.id}/result`
@@ -1242,19 +1242,28 @@ export default function ProjectDashboardPage() {
                   </p>
                 </div>
                 {isOwner && (
-                  <Button
-                    onClick={() => void startFfeSession({ redirectToContribute: isSoloProject })}
-                    disabled={startBusy}
-                  >
-                    {startBusy ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
+                  isSoloProject ? (
+                    <Button asChild>
+                      <Link href={`/p/${project.id}/contribute`}>
                         <Play className="h-4 w-4" />
-                        {isSoloProject ? "Add training data" : "Start session"}
-                      </>
-                    )}
-                  </Button>
+                        Add training data
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => void startFfeSession({ redirectToContribute: false })}
+                      disabled={startBusy}
+                    >
+                      {startBusy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4" />
+                          Start session
+                        </>
+                      )}
+                    </Button>
+                  )
                 )}
               </div>
               {invitedContributors.length > 0 && (

@@ -26,6 +26,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { projectStore } from "@/lib/mock/projectStore";
 import { ensureDemoProject } from "@/lib/mock/seedDemo";
 import { filesToFfePayload, prepareFfeContribution, submitFfeContribution } from "@/lib/ffe/client";
+import { openProjectSession } from "@/lib/ffe/openProjectSession";
 import { submitPreparedContributionWithWallet } from "@/lib/ffe/walletSubmit";
 import { loadProject, updateProject } from "@/lib/projects/client";
 import type { Project } from "@/lib/mock/types";
@@ -180,24 +181,33 @@ function UploadFlow({ projectId }: { projectId: string }) {
 
   async function handleSubmit() {
     if (!report) return;
-    const p = projectStore.get(projectId);
-    const chainSession = p?.chainSession;
-    if (!chainSession) {
-      setError(
-        "This project does not have a real FFE session yet. Create a new project to use the live finetuning path.",
-      );
+    let p = projectStore.get(projectId);
+    if (!p) {
+      setError("Project not found in local store.");
       return;
     }
+    let chainSession = p.chainSession;
+    const needsSession = !chainSession;
 
     setPhase("submitting");
     setSubmit("encrypting");
     setError(null);
     replaceTimeline([
+      ...(needsSession
+        ? [
+            {
+              id: "session",
+              title: "Opening private on-chain session",
+              detail: "Registering this run on 0G so your encrypted data has somewhere to land.",
+              status: "active" as UploadTimelineStatus,
+            },
+          ]
+        : []),
       {
         id: "prepare",
         title: "Preparing your training data",
         detail: "Reading the selected files and shaping them into the training payload.",
-        status: "active",
+        status: needsSession ? ("pending" as UploadTimelineStatus) : ("active" as UploadTimelineStatus),
       },
       {
         id: "encrypt",
@@ -220,6 +230,33 @@ function UploadFlow({ projectId }: { projectId: string }) {
     ]);
 
     try {
+      if (needsSession) {
+        if (!user) throw new Error("Sign in before submitting this contribution.");
+        const opened = await openProjectSession({
+          project: p,
+          user: {
+            id: user.id,
+            displayName: user.displayName,
+            email: user.email,
+            walletAddress: user.walletAddress,
+          },
+          wallets: wallets.map((w) => ({ type: w.type, address: w.address })),
+        });
+        p = opened.project;
+        chainSession = opened.project.chainSession;
+        if (!chainSession) {
+          throw new Error("Failed to open the on-chain session.");
+        }
+        updateTimeline("session", {
+          status: "done",
+          detail: "Session live on 0G. Continuing with your contribution.",
+        });
+        updateTimeline("prepare", { status: "active" });
+      }
+      if (!chainSession) {
+        throw new Error("On-chain session is not available.");
+      }
+      const activeSession = chainSession;
       const payloadFiles = await filesToFfePayload(files);
       updateTimeline("prepare", {
         status: "done",
@@ -235,8 +272,8 @@ function UploadFlow({ projectId }: { projectId: string }) {
         name: user?.displayName ?? "Contributor",
       };
       const participant =
-        chainSession.participants?.find((item) => user && item.contributorId === user.id) ??
-        chainSession.participants?.find((item) =>
+        activeSession.participants?.find((item) => user && item.contributorId === user.id) ??
+        activeSession.participants?.find((item) =>
           wallets.some(
             (candidate) =>
               candidate.type === "ethereum" &&
@@ -244,15 +281,15 @@ function UploadFlow({ projectId }: { projectId: string }) {
           ),
         );
       const wallet =
-        chainSession.mode === "wallet-owner"
+        activeSession.mode === "wallet-owner"
           ? wallets.find(
               (candidate) =>
                 candidate.type === "ethereum" &&
                 candidate.address.toLowerCase() ===
-                  (participant?.address ?? chainSession.participantAddress).toLowerCase(),
+                  (participant?.address ?? activeSession.participantAddress).toLowerCase(),
             )
           : undefined;
-      if (chainSession.mode === "wallet-owner" && !wallet) {
+      if (activeSession.mode === "wallet-owner" && !wallet) {
         throw new Error(
           "Connect the wallet that owns this FFE session before submitting this contribution.",
         );
@@ -263,7 +300,7 @@ function UploadFlow({ projectId }: { projectId: string }) {
             from: wallet.address,
             prepared: await prepareFfeContribution({
               projectId,
-              sessionId: chainSession.sessionId,
+              sessionId: activeSession.sessionId,
               contributor,
               usableCount: report.usableCount,
               files: payloadFiles,
@@ -271,7 +308,7 @@ function UploadFlow({ projectId }: { projectId: string }) {
           })
         : await submitFfeContribution({
             projectId,
-            sessionId: chainSession.sessionId,
+            sessionId: activeSession.sessionId,
             contributor,
             usableCount: report.usableCount,
             files: payloadFiles,
