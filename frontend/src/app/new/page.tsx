@@ -20,13 +20,13 @@ export default function NewProjectPage() {
 
   return (
     <main className="relative flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 pt-6">
+      <header className="mx-auto flex w-full max-w-[96rem] items-center justify-between px-6 pt-6">
         <Link href="/" className="font-serif text-xl tracking-tight">
           FFE<span className="text-foreground-subtle">.</span>
         </Link>
         <div className="flex items-center gap-3"><TrustBadge /><UserPill /></div>      </header>
 
-      <section className="mx-auto w-full max-w-5xl px-6 py-12">
+      <section className="mx-auto w-full max-w-6xl px-6 py-12">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}

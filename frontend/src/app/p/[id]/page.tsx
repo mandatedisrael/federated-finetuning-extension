@@ -992,7 +992,7 @@ export default function ProjectDashboardPage() {
           </Link>
         </motion.div>
       )}
-      <header className="border-border mx-auto flex w-full max-w-7xl items-center justify-between border-b px-6 py-4">
+      <header className="border-border mx-auto flex w-full max-w-[96rem] items-center justify-between border-b px-6 py-4">
         <div className="flex items-center gap-3">
           <Link href="/" className="font-serif text-lg tracking-tight">
             FFE<span className="text-foreground-subtle">.</span>
@@ -1016,7 +1016,7 @@ export default function ProjectDashboardPage() {
         </div>
       </header>
 
-      <section className="mx-auto w-full max-w-4xl px-6 py-10">
+      <section className="mx-auto w-full max-w-6xl px-6 py-10">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}

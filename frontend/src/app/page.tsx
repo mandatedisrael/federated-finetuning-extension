@@ -128,7 +128,7 @@ const UNDER_HOOD = [
 export default function LandingPage() {
   return (
     <main className="relative flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 pt-6">
+      <header className="mx-auto flex w-full max-w-[96rem] items-center justify-between px-6 pt-6">
         <Link href="/" className="font-serif text-xl tracking-tight">
           FFE<span className="text-foreground-subtle">.</span>
         </Link>
@@ -160,7 +160,7 @@ export default function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section className="mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 items-center gap-10 px-6 py-16 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:py-24">
+      <section className="mx-auto grid w-full max-w-[96rem] flex-1 grid-cols-1 items-center gap-10 px-6 py-16 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:py-24">
         <Reveal once={false} y={32} duration={0.7} className="text-center lg:text-left">
           <p className="text-foreground-subtle mb-5 text-xs tracking-[0.2em] uppercase">
             Collaborative fine-tuning, without the jargon
@@ -201,7 +201,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it works (3 cards) */}
-      <section id="how" className="mx-auto w-full max-w-7xl px-6 py-20">
+      <section id="how" className="mx-auto w-full max-w-[96rem] px-6 py-20">
         <Reveal className="mx-auto mb-12 max-w-2xl text-center">
           <p className="text-foreground-subtle text-xs tracking-[0.2em] uppercase">
             How it works
@@ -230,7 +230,7 @@ export default function LandingPage() {
 
       {/* The flow — narrative steps */}
       <section className="bg-surface-muted border-border border-y">
-        <div className="mx-auto w-full max-w-7xl px-6 py-20">
+        <div className="mx-auto w-full max-w-[96rem] px-6 py-20">
           <Reveal className="mx-auto mb-12 max-w-2xl text-center">
             <p className="text-foreground-subtle text-xs tracking-[0.2em] uppercase">The flow</p>
             <h2 className="mt-3 font-serif text-4xl tracking-tight sm:text-5xl">
@@ -260,7 +260,7 @@ export default function LandingPage() {
       </section>
 
       {/* Privacy by design */}
-      <section id="privacy" className="mx-auto w-full max-w-7xl px-6 py-20">
+      <section id="privacy" className="mx-auto w-full max-w-[96rem] px-6 py-20">
         <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-[1fr_1.2fr]">
           <Reveal>
             <p className="text-foreground-subtle text-xs tracking-[0.2em] uppercase">
@@ -298,7 +298,7 @@ export default function LandingPage() {
 
       {/* Use cases */}
       <section id="use-cases" className="bg-surface-muted border-border border-y">
-        <div className="mx-auto w-full max-w-7xl px-6 py-20">
+        <div className="mx-auto w-full max-w-[96rem] px-6 py-20">
           <Reveal className="mx-auto mb-12 max-w-2xl text-center">
             <p className="text-foreground-subtle text-xs tracking-[0.2em] uppercase">
               Use cases
@@ -324,7 +324,7 @@ export default function LandingPage() {
       </section>
 
       {/* Under the hood */}
-      <section className="mx-auto w-full max-w-7xl px-6 py-20">
+      <section className="mx-auto w-full max-w-[96rem] px-6 py-20">
         <div className="grid grid-cols-1 items-start gap-12 lg:grid-cols-[1.2fr_1fr]">
           <div>
             <Reveal>
@@ -379,7 +379,7 @@ export default function LandingPage() {
 
       {/* Final CTA */}
       <section className="bg-accent text-accent-foreground">
-        <div className="mx-auto w-full max-w-7xl px-6 py-20 text-center">
+        <div className="mx-auto w-full max-w-[96rem] px-6 py-20 text-center">
           <Reveal>
             <h2 className="font-serif text-4xl tracking-tight sm:text-5xl">
               Start a project. Invite your team.
@@ -404,7 +404,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-border mx-auto w-full max-w-7xl border-t px-6 py-8">
+      <footer className="border-border mx-auto w-full max-w-[96rem] border-t px-6 py-8">
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-foreground-subtle text-xs">
             FFE — federated fine-tuning extension. Hidden machinery: TEE attestation, encrypted

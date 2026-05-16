@@ -201,6 +201,10 @@
   --accent-soft: #1a1a1a;
 }
 
+html {
+  font-size: 18px;
+}
+
 html,
 body {
   background: var(--background);
@@ -211,6 +215,7 @@ body {
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  letter-spacing: -0.005em;
 }
 
 /* ============================================================
