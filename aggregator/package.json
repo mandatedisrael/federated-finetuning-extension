@@ -29,10 +29,11 @@
     "start": "set -a; [ -f .env ] && . ./.env; set +a; pnpm build >/dev/null && node dist/start.js",
     "mint:resume": "set -a; [ -f .env ] && . ./.env; set +a; pnpm build >/dev/null && node dist/resumeMint.js",
     "service": "set -a; [ -f .env ] && . ./.env; set +a; pnpm build >/dev/null && node dist/start.js",
-    "keygen": "tsx scripts/keygen.ts"
+    "keygen": "tsx scripts/keygen.ts",
+    "check-wallet": "tsx scripts/checkWallet.ts"
   },
   "dependencies": {
-    "@0gfoundation/0g-compute-ts-sdk": "^0.8.0",
+    "@0gfoundation/0g-compute-ts-sdk": "^0.8.3",
     "@0gfoundation/0g-ts-sdk": "^1.2.6",
     "@noble/ciphers": "^1.0.0",
     "@noble/curves": "^1.6.0",
