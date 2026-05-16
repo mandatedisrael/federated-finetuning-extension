@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/.next
+**/.env
+**/.env.*
+**/.git
+**/output
+**/.turbo
+**/__pycache__
+*.log
+frontend/public
+ffe-trained-lora
+single-trained-lora
+download-ffe-lora.js
