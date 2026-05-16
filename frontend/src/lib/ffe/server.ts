@@ -33,6 +33,12 @@ interface AggregatorRuntimeStatusFile {
       updatedAt?: string;
       txHash?: string;
       error?: string;
+      logs?: Array<{
+        message?: string;
+        timestamp?: string;
+        tone?: "info" | "success" | "warning" | "error";
+        phase?: string;
+      }>;
     }
   >;
 }
@@ -51,6 +57,51 @@ async function readAggregatorRuntimeSession(sessionId: string) {
   } catch {
     return null;
   }
+}
+
+interface CancelRequestFile {
+  requests: Record<string, { requestedAt: string; reason?: string; processedAt?: string }>;
+}
+
+export async function requestSessionCancellation(input: {
+  sessionId: string;
+  reason?: string;
+}): Promise<{ accepted: boolean; requestedAt: string }> {
+  const sessionId = input.sessionId.trim();
+  if (!sessionId) {
+    throw new Error("sessionId is required.");
+  }
+  // Validate it parses as bigint so we never write garbage IDs the aggregator
+  // would silently skip.
+  BigInt(sessionId);
+
+  const cancelPath =
+    env("FFE_AGGREGATOR_CANCEL_PATH") ?? "/tmp/ffe-aggregator-cancellations.json";
+
+  let file: CancelRequestFile = { requests: {} };
+  try {
+    const raw = await fs.readFile(cancelPath, "utf8");
+    const parsed = JSON.parse(raw) as CancelRequestFile;
+    file = { requests: parsed.requests ?? {} };
+  } catch {
+    file = { requests: {} };
+  }
+
+  const requestedAt = new Date().toISOString();
+  const existing = file.requests[sessionId];
+  file.requests[sessionId] = {
+    requestedAt: existing?.requestedAt ?? requestedAt,
+    ...(input.reason ? { reason: input.reason } : {}),
+  };
+
+  const path = await import("node:path");
+  const directory = path.dirname(cancelPath);
+  await fs.mkdir(directory, { recursive: true });
+  const tempPath = `${cancelPath}.tmp`;
+  await fs.writeFile(tempPath, JSON.stringify(file, null, 2));
+  await fs.rename(tempPath, cancelPath);
+
+  return { accepted: true, requestedAt: file.requests[sessionId]!.requestedAt };
 }
 
 function requirePrivateKey(): `0x${string}` {
@@ -381,6 +432,17 @@ export async function getSessionStatus(sessionIdInput: string): Promise<FfeSessi
     failureReason: runtimeSession?.error,
     runtimeUpdatedAt: runtimeSession?.updatedAt,
     mintTxHash: runtimeSession?.txHash,
+    runtimeLogs:
+      runtimeSession?.logs
+        ?.filter((entry): entry is NonNullable<typeof entry> & { message: string; timestamp: string } =>
+          Boolean(entry?.message && entry?.timestamp),
+        )
+        .map((entry) => ({
+          message: entry.message,
+          timestamp: entry.timestamp,
+          tone: entry.tone,
+          phase: entry.phase,
+        })) ?? [],
   };
 }
 

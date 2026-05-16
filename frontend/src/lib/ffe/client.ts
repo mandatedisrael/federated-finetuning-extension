@@ -95,6 +95,18 @@ export async function getFfeSessionStatus(sessionId: string): Promise<FfeSession
   return parseApiResponse<FfeSessionStatusResult>(res);
 }
 
+export async function cancelFfeSession(
+  sessionId: string,
+  reason?: string,
+): Promise<{ accepted: boolean; requestedAt: string }> {
+  const res = await fetch(`/api/ffe/sessions/${encodeURIComponent(sessionId)}/cancel`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });
+  return parseApiResponse<{ accepted: boolean; requestedAt: string }>(res);
+}
+
 export async function downloadFfeArtifact(
   sessionId: string,
   input: DownloadFfeArtifactInput,

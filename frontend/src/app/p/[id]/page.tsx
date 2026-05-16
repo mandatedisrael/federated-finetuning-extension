@@ -25,10 +25,19 @@ import {
   Settings,
   Copy,
   BrainCircuit,
-  Waves,
   ShieldCheck,
-  Orbit,
+  Ban,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/Dialog";
 import {
   Sheet,
   SheetTrigger,
@@ -45,7 +54,11 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { usePageTitle } from "@/lib/a11y/usePageTitle";
-import { createFfeProjectSession, getFfeSessionStatus } from "@/lib/ffe/client";
+import {
+  cancelFfeSession,
+  createFfeProjectSession,
+  getFfeSessionStatus,
+} from "@/lib/ffe/client";
 import { createBrowserFfeKeyPair } from "@/lib/ffe/keys";
 import { projectStore } from "@/lib/mock/projectStore";
 import { loadProject, updateProject } from "@/lib/projects/client";
@@ -161,148 +174,367 @@ function ProjectSettingsButton({
 function TrainingShowcase({
   project,
   sessionStatus,
+  isOwner,
+  onCancelled,
 }: {
   project: Project;
   sessionStatus: FfeSessionStatusResult | null;
+  isOwner: boolean;
+  onCancelled: (reason: string) => void;
 }) {
-  const telemetry = [
-    {
-      label: "Dataset alignment",
-      detail: "Normalizing uploaded examples into the active fine-tuning window.",
-      delay: 0,
-    },
-    {
-      label: "Gradient updates",
-      detail: "Applying contributor signal against the selected base model.",
-      delay: 0.18,
-    },
-    {
-      label: "Validation sweep",
-      detail: "Checking model drift and preparing the next checkpoint.",
-      delay: 0.36,
-    },
-  ];
+  const [cancelOpen, setCancelOpen] = React.useState(false);
+  const [cancelBusy, setCancelBusy] = React.useState(false);
+  const [cancelError, setCancelError] = React.useState<string | null>(null);
+  const sessionId = project.chainSession?.sessionId;
+
+  async function handleCancel() {
+    if (!sessionId) return;
+    setCancelBusy(true);
+    setCancelError(null);
+    try {
+      await cancelFfeSession(sessionId, "Cancelled by owner from dashboard");
+      onCancelled("Cancelled by owner.");
+      setCancelOpen(false);
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : "Cancellation failed.");
+    } finally {
+      setCancelBusy(false);
+    }
+  }
+
+  const contributors = project.contributors.slice(0, 6);
+  const runtimeLogs =
+    sessionStatus?.runtimeLogs?.length
+      ? [...sessionStatus.runtimeLogs].slice(-8).reverse()
+      : [
+          {
+            message: "Waiting for the next backend checkpoint...",
+            timestamp: new Date().toISOString(),
+            tone: "info" as const,
+            phase: "training",
+          },
+        ];
+
+  const toneClasses: Record<string, string> = {
+    success:
+      "border-[color:var(--status-success)]/20 bg-[var(--status-success-bg)] text-[color:var(--status-success)]",
+    warning:
+      "border-[color:var(--status-warning)]/20 bg-[var(--status-warning-bg)] text-[color:var(--status-warning)]",
+    error:
+      "border-[color:var(--status-danger)]/20 bg-[var(--status-danger-bg)] text-[color:var(--status-danger)]",
+    info: "border-[color:var(--accent)]/20 bg-[var(--status-progress-bg)] text-[color:var(--status-progress)]",
+  };
+
+  function initials(name: string) {
+    const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
+    return parts.map((part) => part[0]?.toUpperCase() ?? "").join("") || "?";
+  }
+
+  const contributorSignals = contributors.map((contributor, index) => {
+    const isSubmitted =
+      !!contributor.walletAddress &&
+      sessionStatus?.submitters.some(
+        (submitter) => submitter.toLowerCase() === contributor.walletAddress?.toLowerCase(),
+      );
+    const isRegistered =
+      contributor.role === "owner" || !!(contributor.walletAddress && contributor.ffePublicKey);
+    const angle = (Math.PI * 2 * index) / Math.max(contributors.length, 1) - Math.PI / 2;
+    const radius = contributors.length <= 2 ? 118 : 138;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+
+    return {
+      contributor,
+      isSubmitted,
+      isRegistered,
+      x,
+      y,
+      pulseDelay: index * 0.18,
+      label: isSubmitted
+        ? "Committed"
+        : isRegistered
+          ? "Encrypted"
+          : "Awaiting",
+    };
+  });
+
+  const latestMessage = runtimeLogs[0]?.message ?? "Waiting for the first live training event.";
+
+  const toneDotClasses: Record<string, string> = {
+    success: "bg-[color:var(--status-success)]",
+    warning: "bg-[color:var(--status-warning)]",
+    error: "bg-[color:var(--status-danger)]",
+    info: "bg-[color:var(--accent)]",
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.36, ease: [0.16, 1, 0.3, 1] }}
-      className="relative mt-5 overflow-hidden rounded-[var(--radius-lg)] border border-[#d6ddff] bg-[#0e1530] p-5 text-white shadow-[0_24px_80px_rgba(48,76,255,0.18)]"
+      className="border-border bg-surface text-foreground relative mt-5 overflow-hidden rounded-[var(--radius-lg)] border p-5 shadow-[var(--shadow-md)]"
     >
-      <motion.div
-        className="absolute -top-16 right-0 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(96,165,250,0.28),transparent_68%)]"
-        animate={{ scale: [1, 1.08, 1], opacity: [0.5, 0.9, 0.5] }}
-        transition={{ duration: 4.2, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute -bottom-20 left-10 h-48 w-48 rounded-full bg-[radial-gradient(circle,rgba(45,212,191,0.18),transparent_68%)]"
-        animate={{ scale: [0.94, 1.06, 0.94], opacity: [0.35, 0.7, 0.35] }}
-        transition={{ duration: 5.1, repeat: Infinity, ease: "easeInOut" }}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Badge tone="info">
+            <motion.span
+              className="bg-accent inline-block h-1.5 w-1.5 rounded-full"
+              animate={{ opacity: [0.4, 1, 0.4], scale: [0.85, 1.1, 0.85] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+            />
+            Training live
+          </Badge>
+          <span className="text-foreground-subtle text-xs tracking-[0.18em] uppercase">
+            Federated run
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge tone="info">
+            {sessionStatus
+              ? `${sessionStatus.submittedCount}/${sessionStatus.quorum} acknowledged`
+              : "Syncing"}
+          </Badge>
+          {isOwner && sessionId && (
+            <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-[color:var(--status-danger)]">
+                  <Ban className="h-3.5 w-3.5" />
+                  Cancel session
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Cancel this training run?</DialogTitle>
+                  <DialogDescription>
+                    The aggregator will stop the in-flight fine-tuning task and mark this session
+                    as failed. Contributors will see the run as cancelled and the trained adapter
+                    will not be minted. This cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                {cancelError && (
+                  <p className="text-status-danger mt-2 text-xs">{cancelError}</p>
+                )}
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="ghost" disabled={cancelBusy}>
+                      Keep training
+                    </Button>
+                  </DialogClose>
+                  <Button
+                    variant="primary"
+                    onClick={() => void handleCancel()}
+                    disabled={cancelBusy}
+                    className="bg-[color:var(--status-danger)] hover:bg-[color:var(--status-danger)]/90"
+                  >
+                    {cancelBusy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Ban className="h-4 w-4" />
+                    )}
+                    Cancel session
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      </div>
 
-      <div className="relative z-10 grid gap-5 lg:grid-cols-[1.3fr_0.9fr]">
-        <div>
-          <div className="flex items-center gap-2">
-            <Badge className="border-white/10 bg-white/10 text-white">Training live</Badge>
-            <span className="text-xs tracking-[0.18em] text-white/55 uppercase">Federated run</span>
+      <div className="mt-5">
+        <p className="text-foreground-subtle text-xs tracking-[0.18em] uppercase">
+          Contributor flow
+        </p>
+        <p className="text-foreground mt-1 text-lg font-medium tracking-tight">
+          Multiple encrypted contributors are feeding one shared model.
+        </p>
+      </div>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-[1.25fr_0.95fr]">
+        <div className="border-border bg-surface-muted/40 rounded-[var(--radius-lg)] border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-foreground-subtle text-xs tracking-[0.18em] uppercase">
+              Federated signal map
+            </p>
+            <span className="text-foreground-muted text-xs">
+              {contributors.length} contributor{contributors.length === 1 ? "" : "s"} feeding one
+              shared run
+            </span>
           </div>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-[0.9fr_1.1fr]">
-            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/5 p-4">
-              <div className="flex items-center gap-3">
-                <motion.div
-                  className="relative flex h-14 w-14 items-center justify-center rounded-full border border-cyan-300/25 bg-cyan-300/10"
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+          <div className="border-border bg-surface relative mt-4 flex min-h-[24rem] items-center justify-center overflow-hidden rounded-[var(--radius-lg)] border">
+            <motion.div
+              className="border-accent/15 absolute h-48 w-48 rounded-full border"
+              animate={{ scale: [0.94, 1.06, 0.94], opacity: [0.35, 0.75, 0.35] }}
+              transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="border-accent/10 absolute h-72 w-72 rounded-full border"
+              animate={{ scale: [1, 1.04, 1], opacity: [0.25, 0.55, 0.25] }}
+              transition={{ duration: 4.6, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="border-accent/8 absolute h-[22rem] w-[22rem] rounded-full border border-dashed"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+            />
+
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              {contributorSignals.map((signal) => {
+                const startX = 50 + signal.x / 4.7;
+                const startY = 50 + signal.y / 4.7;
+                return (
+                  <line
+                    key={`line-${signal.contributor.id}`}
+                    x1={`${startX}%`}
+                    y1={`${startY}%`}
+                    x2="50%"
+                    y2="50%"
+                    stroke={
+                      signal.isSubmitted
+                        ? "var(--accent)"
+                        : "color-mix(in srgb, var(--accent) 35%, transparent)"
+                    }
+                    strokeDasharray="1.4 1.6"
+                    strokeWidth="0.25"
+                    opacity={signal.isSubmitted ? 0.65 : 0.4}
+                  />
+                );
+              })}
+            </svg>
+
+            {contributorSignals.map((signal) => (
+              <React.Fragment key={signal.contributor.id}>
+                <div
+                  className="absolute top-1/2 left-1/2"
+                  style={{
+                    transform: `translate(calc(-50% + ${signal.x}px), calc(-50% + ${signal.y}px))`,
+                  }}
                 >
                   <motion.div
-                    className="absolute inset-1 rounded-full border border-cyan-200/25"
-                    animate={{ rotate: -360 }}
-                    transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-                  />
-                  <BrainCircuit className="h-6 w-6 text-cyan-100" />
-                </motion.div>
-                <div>
-                  <p className="text-xs tracking-[0.18em] text-white/55 uppercase">Core loop</p>
-                  <p className="mt-1 text-lg font-medium tracking-tight">
-                    Fine-tuning checkpoint active
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {telemetry.map((item) => (
-                  <div key={item.label} className="flex items-start gap-3">
-                    <motion.span
-                      className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.75)]"
-                      animate={{ scale: [0.9, 1.25, 0.9], opacity: [0.45, 1, 0.45] }}
-                      transition={{
-                        duration: 2.2,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: item.delay,
-                      }}
-                    />
-                    <div>
-                      <p className="text-sm font-medium tracking-tight">{item.label}</p>
-                      <p className="mt-1 text-xs leading-relaxed text-white/65">{item.detail}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs tracking-[0.18em] text-white/55 uppercase">Training flow</p>
-                <Orbit className="h-4 w-4 text-cyan-200/80" />
-              </div>
-              <div className="mt-4 flex items-center justify-between gap-3">
-                {[
-                  { icon: ShieldCheck, label: "Encrypted data" },
-                  { icon: Waves, label: "Gradient pass" },
-                  { icon: Sparkles, label: "Checkpoint merge" },
-                ].map((node, index) => {
-                  const Icon = node.icon;
-                  return (
-                    <React.Fragment key={node.label}>
-                      <motion.div
-                        className="flex w-full max-w-[8rem] flex-col items-center rounded-[var(--radius-lg)] border border-white/10 bg-white/6 px-3 py-4 text-center"
-                        animate={{ y: [0, -5, 0] }}
+                    className="border-border bg-surface relative flex w-24 flex-col items-center rounded-[var(--radius-lg)] border px-3 py-3 text-center shadow-[var(--shadow-sm)]"
+                    animate={{ y: [0, -4, 0] }}
+                    transition={{
+                      duration: 2.8,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: signal.pulseDelay,
+                    }}
+                  >
+                    <div className="border-border bg-surface-muted relative flex h-10 w-10 items-center justify-center rounded-full border">
+                      <span className="text-foreground text-sm font-semibold">
+                        {initials(signal.contributor.name)}
+                      </span>
+                      <motion.span
+                        className={`border-surface absolute -right-1 -bottom-1 h-3 w-3 rounded-full border-2 ${
+                          signal.isSubmitted
+                            ? "bg-[color:var(--status-success)]"
+                            : signal.isRegistered
+                              ? "bg-[color:var(--accent)]"
+                              : "bg-[color:var(--status-idle)]"
+                        }`}
+                        animate={{
+                          scale: [0.9, 1.15, 0.9],
+                          opacity: [0.55, 1, 0.55],
+                        }}
                         transition={{
-                          duration: 2.8,
+                          duration: 1.8,
                           repeat: Infinity,
                           ease: "easeInOut",
-                          delay: index * 0.24,
+                          delay: signal.pulseDelay,
                         }}
-                      >
-                        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
-                          <Icon className="h-5 w-5 text-cyan-100" />
-                        </div>
-                        <p className="mt-3 text-xs font-medium tracking-tight text-white/85">
-                          {node.label}
-                        </p>
-                      </motion.div>
-                      {index < 2 && (
-                        <motion.div
-                          className="hidden h-px flex-1 bg-[linear-gradient(90deg,rgba(103,232,249,0.18),rgba(96,165,250,0.75),rgba(103,232,249,0.18))] md:block"
-                          animate={{ opacity: [0.35, 1, 0.35] }}
-                          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-                        />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
+                      />
+                    </div>
+                    <p className="text-foreground mt-2 truncate text-xs font-medium tracking-tight">
+                      {signal.contributor.name}
+                    </p>
+                    <p className="text-foreground-subtle mt-0.5 text-[10px] tracking-wide uppercase">
+                      {signal.label}
+                    </p>
+                  </motion.div>
+                </div>
+
+                <motion.span
+                  className="bg-accent shadow-accent/30 absolute top-1/2 left-1/2 h-2 w-2 rounded-full shadow-[0_0_14px]"
+                  animate={{
+                    x: [signal.x, signal.x * 0.42, 0],
+                    y: [signal.y, signal.y * 0.42, 0],
+                    opacity: [0, 1, 0],
+                    scale: [0.7, 1.15, 0.7],
+                  }}
+                  transition={{
+                    duration: signal.isSubmitted ? 1.8 : 2.6,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: signal.pulseDelay,
+                  }}
+                  style={{ marginLeft: "-4px", marginTop: "-4px" }}
+                />
+              </React.Fragment>
+            ))}
+
+            <motion.div
+              className="bg-accent text-accent-foreground border-accent/30 relative z-10 flex h-36 w-36 flex-col items-center justify-center rounded-full border text-center shadow-[var(--shadow-lg)]"
+              animate={{ scale: [1, 1.03, 1] }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <BrainCircuit className="h-7 w-7" />
+              <p className="mt-2 text-[10px] font-semibold tracking-[0.2em] uppercase opacity-80">
+                Shared model
+              </p>
+              <p className="mt-1 max-w-[6.5rem] text-xs leading-snug font-medium tracking-tight">
+                Aggregating every encrypted contribution
+              </p>
+            </motion.div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {[
+              {
+                label: "Encrypted feeds",
+                value: `${contributors.filter((entry) => entry.ffePublicKey).length}/${contributors.length}`,
+              },
+              {
+                label: "Committed on-chain",
+                value: sessionStatus
+                  ? `${sessionStatus.submittedCount}/${sessionStatus.quorum}`
+                  : "Syncing",
+              },
+              {
+                label: "Current checkpoint",
+                value: runtimeLogs[0]?.phase ?? "training",
+              },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="border-border bg-surface rounded-[var(--radius-md)] border px-3 py-3"
+              >
+                <p className="text-foreground-subtle text-[10px] tracking-[0.18em] uppercase">
+                  {stat.label}
+                </p>
+                <p className="text-foreground mt-1.5 text-sm font-medium tracking-tight">
+                  {stat.value}
+                </p>
               </div>
-            </div>
+            ))}
+          </div>
+
+          <div className="text-foreground-muted mt-4 flex items-center gap-2 text-xs">
+            <ShieldCheck className="h-3.5 w-3.5 text-[color:var(--trust)]" />
+            Every stream above is encrypted before it feeds the same live fine-tuning job.
           </div>
         </div>
 
         <div className="grid content-start gap-3">
           {[
             { label: "FFE session", value: `#${project.chainSession?.sessionId ?? "—"}` },
-            { label: "Base model", value: project.chainSession?.baseModel ?? "Awaiting sync" },
+            {
+              label: "Base model",
+              value: project.chainSession?.baseModel ?? "Awaiting sync",
+            },
             {
               label: "On-chain quorum",
               value: sessionStatus
@@ -312,34 +544,97 @@ function TrainingShowcase({
           ].map((stat) => (
             <div
               key={stat.label}
-              className="rounded-[var(--radius-lg)] border border-white/10 bg-white/6 px-4 py-3"
+              className="border-border bg-surface-muted/40 rounded-[var(--radius-md)] border px-4 py-3"
             >
-              <p className="text-[10px] tracking-[0.18em] text-white/55 uppercase">{stat.label}</p>
-              <p className="mt-2 text-sm font-medium tracking-tight text-white">{stat.value}</p>
+              <p className="text-foreground-subtle text-[10px] tracking-[0.18em] uppercase">
+                {stat.label}
+              </p>
+              <p className="text-foreground mt-1.5 text-sm font-medium tracking-tight">
+                {stat.value}
+              </p>
             </div>
           ))}
 
-          <div className="rounded-[var(--radius-lg)] border border-cyan-300/20 bg-cyan-300/8 px-4 py-4">
-            <p className="text-[10px] tracking-[0.18em] text-cyan-100/70 uppercase">
-              Live activity
+          <div className="border-border bg-surface rounded-[var(--radius-lg)] border px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-foreground-subtle text-[10px] tracking-[0.18em] uppercase">
+                Live training log
+              </p>
+              <Badge tone="info">{runtimeLogs.length} updates</Badge>
+            </div>
+            <div className="mt-4 space-y-3">
+              {runtimeLogs.map((entry, index) => (
+                <div key={`${entry.timestamp}-${index}`} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <motion.span
+                      className={`mt-1 inline-flex h-2.5 w-2.5 rounded-full ${
+                        toneDotClasses[entry.tone ?? "info"] ?? toneDotClasses.info
+                      }`}
+                      animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.55, 1, 0.55] }}
+                      transition={{
+                        duration: 1.7,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: index * 0.08,
+                      }}
+                    />
+                    {index < runtimeLogs.length - 1 && (
+                      <div className="border-border mt-2 h-full w-px border-l" />
+                    )}
+                  </div>
+                  <div className="border-border bg-surface-muted/40 min-w-0 rounded-[var(--radius-md)] border p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] tracking-[0.14em] uppercase ${
+                          toneClasses[entry.tone ?? "info"] ?? toneClasses.info
+                        }`}
+                      >
+                        {entry.phase ?? "update"}
+                      </span>
+                      <span className="text-foreground-subtle text-[10px]">
+                        {new Date(entry.timestamp).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-foreground mt-1.5 text-sm leading-relaxed">
+                      {entry.message}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-foreground-muted mt-4 text-xs leading-relaxed">
+              We surface the real backend milestones here, including training, trained, delivering,
+              delivered, acknowledged, and any failure state.
             </p>
-            <p className="mt-2 text-sm font-medium tracking-tight text-cyan-50">
-              The model is processing your uploaded dataset and preparing the next evaluation
-              checkpoint.
+          </div>
+
+          <div className="border-border bg-surface-muted/40 rounded-[var(--radius-md)] border px-4 py-3">
+            <p className="text-foreground-subtle text-[10px] tracking-[0.18em] uppercase">
+              Latest checkpoint
             </p>
-            <div className="mt-4 space-y-2">
+            <p className="text-foreground mt-1.5 text-sm font-medium tracking-tight">
+              {latestMessage}
+            </p>
+            <div className="mt-4 grid gap-2">
               {[0, 1, 2].map((bar) => (
-                <div key={bar} className="h-2 overflow-hidden rounded-full bg-white/10">
+                <div
+                  key={bar}
+                  className="bg-surface h-1.5 overflow-hidden rounded-full border border-[color:var(--border)]"
+                >
                   <motion.div
-                    className="h-full rounded-full bg-[linear-gradient(90deg,#67e8f9,#818cf8,#22d3ee)]"
+                    className="bg-accent h-full rounded-full"
                     animate={{ x: ["-30%", "105%"] }}
                     transition={{
-                      duration: 2.6 + bar * 0.35,
+                      duration: 2.2 + bar * 0.24,
                       repeat: Infinity,
                       ease: "easeInOut",
-                      delay: bar * 0.18,
+                      delay: bar * 0.14,
                     }}
-                    style={{ width: "45%" }}
+                    style={{ width: `${38 + bar * 12}%` }}
                   />
                 </div>
               ))}
@@ -369,29 +664,27 @@ function FailedTrainingShowcase({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-      className="relative mt-5 overflow-hidden rounded-[var(--radius-lg)] border border-[#fed7aa] bg-[#1c1110] p-5 text-white shadow-[0_24px_80px_rgba(249,115,22,0.16)]"
+      className="border-border bg-surface text-foreground relative mt-5 overflow-hidden rounded-[var(--radius-lg)] border p-5 shadow-[var(--shadow-md)]"
     >
       <motion.div
-        className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(251,191,36,0.9),transparent)]"
+        className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,var(--status-warning),transparent)]"
         animate={{ opacity: [0.3, 1, 0.3] }}
         transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
       />
 
       <div className="relative z-10 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/5 p-4">
+        <div className="border-border bg-surface-muted/40 rounded-[var(--radius-lg)] border p-4">
           <div className="flex items-center gap-3">
             <motion.div
-              className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-amber-300/20 bg-amber-300/10"
+              className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--status-warning-bg)]"
               animate={{ scale: [1, 1.06, 1] }}
               transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
             >
-              <AlertCircle className="h-5 w-5 text-amber-200" />
+              <AlertCircle className="h-5 w-5 text-[color:var(--status-warning)]" />
             </motion.div>
             <div>
-              <Badge className="border-amber-200/10 bg-amber-200/10 text-amber-50">
-                Training interrupted
-              </Badge>
-              <h3 className="mt-2 text-lg font-medium tracking-tight">
+              <Badge tone="warning">Training interrupted</Badge>
+              <h3 className="text-foreground mt-2 text-lg font-medium tracking-tight">
                 The model run needs attention before delivery can finish.
               </h3>
             </div>
@@ -401,38 +694,40 @@ function FailedTrainingShowcase({
             {diagnostics.map((line, index) => (
               <div key={line} className="flex items-start gap-3">
                 <motion.span
-                  className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-amber-300"
+                  className="mt-1.5 inline-flex h-2 w-2 rounded-full bg-[color:var(--status-warning)]"
                   animate={{ opacity: [0.45, 1, 0.45] }}
                   transition={{ duration: 1.8, repeat: Infinity, delay: index * 0.12 }}
                 />
-                <p className="text-sm leading-relaxed text-white/78">{line}</p>
+                <p className="text-foreground-muted text-sm leading-relaxed">{line}</p>
               </div>
             ))}
           </div>
         </div>
 
         <div className="grid content-start gap-3">
-          <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/6 px-4 py-3">
-            <p className="text-[10px] tracking-[0.18em] text-white/55 uppercase">
+          <div className="border-border bg-surface-muted/40 rounded-[var(--radius-md)] border px-4 py-3">
+            <p className="text-foreground-subtle text-[10px] tracking-[0.18em] uppercase">
               Latest backend status
             </p>
-            <p className="mt-2 text-sm font-medium tracking-tight text-white">
+            <p className="text-foreground mt-1.5 text-sm font-medium tracking-tight">
               {sessionStatus?.failureReason ?? "The aggregator reported a delivery failure."}
             </p>
           </div>
-          <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/6 px-4 py-3">
-            <p className="text-[10px] tracking-[0.18em] text-white/55 uppercase">What this means</p>
-            <p className="mt-2 text-sm leading-relaxed text-white/72">
+          <div className="border-border bg-surface-muted/40 rounded-[var(--radius-md)] border px-4 py-3">
+            <p className="text-foreground-subtle text-[10px] tracking-[0.18em] uppercase">
+              What this means
+            </p>
+            <p className="text-foreground-muted mt-1.5 text-sm leading-relaxed">
               The UI is now showing the real backend state. This run will not move to Ready until
               the artifact download and final mint handoff complete cleanly.
             </p>
           </div>
           {sessionStatus?.runtimeUpdatedAt && (
-            <div className="rounded-[var(--radius-lg)] border border-white/10 bg-white/6 px-4 py-3">
-              <p className="text-[10px] tracking-[0.18em] text-white/55 uppercase">
+            <div className="border-border bg-surface-muted/40 rounded-[var(--radius-md)] border px-4 py-3">
+              <p className="text-foreground-subtle text-[10px] tracking-[0.18em] uppercase">
                 Last update
               </p>
-              <p className="mt-2 text-sm font-medium tracking-tight text-white">
+              <p className="text-foreground mt-1.5 text-sm font-medium tracking-tight">
                 {new Date(sessionStatus.runtimeUpdatedAt).toLocaleString([], {
                   dateStyle: "medium",
                   timeStyle: "short",
@@ -462,6 +757,39 @@ export default function ProjectDashboardPage() {
     if (!params?.id) return;
     const id = params.id;
     let cancelled = false;
+
+    async function refreshSessionStatus(sessionId: string) {
+      return getFfeSessionStatus(sessionId)
+        .then((status) => {
+          if (cancelled) return;
+          const latest = projectStore.get(id);
+          // Owner cancellation is optimistic: keep the failed stage even if
+          // the aggregator hasn't yet written its failure status to disk.
+          const localFailedSticky =
+            latest?.stage === "failed" && status.stage !== "failed" && status.stage !== "ready";
+          setSessionStatus(
+            localFailedSticky
+              ? {
+                  ...status,
+                  stage: "failed",
+                  failureReason: status.failureReason ?? "Cancelled by owner.",
+                }
+              : status,
+          );
+          if (!latest) return;
+          if (latest.stage === "ready" && status.stage !== "failed") return;
+          if (localFailedSticky) return;
+          const updated = projectStore.update(id, { stage: status.stage });
+          if (updated) {
+            setProject(updated);
+            void updateProject(id, { stage: status.stage }).catch(() => undefined);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setSessionStatus(null);
+        });
+    }
+
     async function loadCurrentProject() {
       await Promise.resolve();
       const p = projectStore.get(id) ?? ensureDemoProject(id);
@@ -478,41 +806,41 @@ export default function ProjectDashboardPage() {
       setProject(current);
       setSessionStatus(null);
 
-      loadProject(id)
-        .then((remote) => {
-          if (!cancelled) setProject(remote);
-        })
-        .catch(() => undefined);
+      function mergeRemoteProject(remote: Project) {
+        if (cancelled) return;
+        const local = projectStore.get(id);
+        // Don't let a stale remote roll us back from failed/ready to training.
+        if (local?.stage === "failed" && remote.stage !== "failed" && remote.stage !== "ready") {
+          setProject({ ...remote, stage: local.stage });
+          return;
+        }
+        if (local?.stage === "ready" && remote.stage !== "failed") {
+          setProject({ ...remote, stage: local.stage });
+          return;
+        }
+        setProject(remote);
+      }
+
+      loadProject(id).then(mergeRemoteProject).catch(() => undefined);
 
       if (current?.chainSession) {
-        getFfeSessionStatus(current.chainSession.sessionId)
-          .then((status) => {
-            if (cancelled) return;
-            setSessionStatus(status);
-            const latest = projectStore.get(id);
-            if (!latest || (latest.stage === "ready" && status.stage !== "failed")) return;
-            const updated = projectStore.update(id, { stage: status.stage });
-            if (updated) {
-              setProject(updated);
-              void updateProject(id, { stage: status.stage }).catch(() => undefined);
-            }
-          })
-          .catch(() => {
-            if (!cancelled) setSessionStatus(null);
-          });
+        void refreshSessionStatus(current.chainSession.sessionId);
       }
+
+      const refreshInterval = window.setInterval(() => {
+        const latest = projectStore.get(id);
+        if (latest?.chainSession) {
+          void refreshSessionStatus(latest.chainSession.sessionId);
+        }
+        loadProject(id).then(mergeRemoteProject).catch(() => undefined);
+      }, 5000);
+      intervalRef = refreshInterval;
     }
+    let intervalRef: number | undefined;
     void loadCurrentProject();
-    const refreshInterval = window.setInterval(() => {
-      loadProject(id)
-        .then((remote) => {
-          if (!cancelled) setProject(remote);
-        })
-        .catch(() => undefined);
-    }, 5000);
     return () => {
       cancelled = true;
-      window.clearInterval(refreshInterval);
+      if (intervalRef !== undefined) window.clearInterval(intervalRef);
     };
   }, [params?.id]);
 
@@ -953,7 +1281,19 @@ export default function ProjectDashboardPage() {
           />
 
           {project.stage === "training" && (
-            <TrainingShowcase project={project} sessionStatus={sessionStatus} />
+            <TrainingShowcase
+              project={project}
+              sessionStatus={sessionStatus}
+              isOwner={isOwner}
+              onCancelled={(reason) => {
+                const updated = projectStore.update(project.id, { stage: "failed" });
+                if (updated) setProject(updated);
+                setSessionStatus((prev) =>
+                  prev ? { ...prev, stage: "failed", failureReason: reason } : prev,
+                );
+                void updateProject(project.id, { stage: "failed" }).catch(() => undefined);
+              }}
+            />
           )}
 
           {project.stage === "failed" && (

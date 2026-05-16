@@ -114,6 +114,12 @@ export interface FfeSessionStatusResult {
   failureReason?: string;
   runtimeUpdatedAt?: string;
   mintTxHash?: string;
+  runtimeLogs?: Array<{
+    message: string;
+    timestamp: string;
+    tone?: "info" | "success" | "warning" | "error";
+    phase?: string;
+  }>;
 }
 
 export interface DownloadFfeArtifactInput {

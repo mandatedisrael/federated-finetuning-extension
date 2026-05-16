@@ -48,6 +48,27 @@ export interface TrainingBridgeOptions {
   ftRpcUrl?: string;
   /** Fine-tuning provider address */
   ftProviderAddress?: string;
+  /** Optional runtime milestone callback for dashboards */
+  onLog?: (entry: {
+    message: string;
+    tone?: "info" | "success" | "warning" | "error";
+    phase?: string;
+  }) => void;
+  /** Aborts the in-flight training run (e.g. owner cancellation) */
+  cancelSignal?: AbortSignal;
+}
+
+export class TrainingCancelledError extends Error {
+  constructor(message = "Training cancelled by owner.") {
+    super(message);
+    this.name = "TrainingCancelledError";
+  }
+}
+
+function throwIfCancelled(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) {
+    throw new TrainingCancelledError();
+  }
 }
 
 export interface TrainingResult {
@@ -110,11 +131,14 @@ export async function assertFineTuningProviderReady(options: {
 export async function trainLoraAdapter(
   options: TrainingBridgeOptions
 ): Promise<TrainingResult> {
+  throwIfCancelled(options.cancelSignal);
   const aesKey = randomBytes(32);
 
   const {adapterBytes, metadata} = options.useReal0GTraining
     ? await trainWith0GService(options)
     : await simulateTraining(options);
+
+  throwIfCancelled(options.cancelSignal);
 
   // Encrypt adapter bytes in the SDK download format:
   // nonce(12) ‖ ciphertext-with-auth-tag.
@@ -149,7 +173,14 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
     baseModel,
     jsonlPath,
     timeoutMs = 3_600_000,
+    onLog,
+    cancelSignal,
   } = options;
+
+  const emitLog = (
+    message: string,
+    logOptions?: {tone?: "info" | "success" | "warning" | "error"; phase?: string}
+  ) => onLog?.({message, ...logOptions});
 
   if (!evmPrivateKey || !ftRpcUrl || !ftProviderAddress) {
     throw new Error(
@@ -158,16 +189,23 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
   }
 
   console.error(`[TEE] Connecting to 0G fine-tuning service at ${ftRpcUrl}`);
+  emitLog("Connecting to the 0G fine-tuning network.", {phase: "training"});
 
   const ft = await createFineTuningClient(evmPrivateKey, ftRpcUrl);
 
   console.error(`[TEE] Acknowledging provider TEE signer: ${ftProviderAddress}`);
+  emitLog("Acknowledging the provider signer inside the secure enclave.", {phase: "training"});
   await ft.acknowledgeProviderSigner(ftProviderAddress);
 
   console.error(`[TEE] Uploading dataset directly to TEE: ${jsonlPath}`);
+  emitLog("Uploading the merged dataset into the TEE.", {phase: "training"});
   const uploadResult = await ft.uploadDatasetToTEE(ftProviderAddress, jsonlPath);
   const datasetHash = uploadResult.datasetHash;
   console.error(`[TEE] Dataset hash: ${datasetHash}`);
+  emitLog("Dataset accepted by the enclave. Creating the fine-tuning task.", {
+    phase: "training",
+    tone: "success",
+  });
 
   const paramsPath = join(tempDir, `training_params_${sessionId}.json`);
   await writeFile(
@@ -185,13 +223,26 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
   const taskId = await ft.createTask(ftProviderAddress, baseModel, datasetHash, paramsPath);
   await rm(paramsPath).catch(() => {});
   console.error(`[TEE] Task ID: ${taskId}`);
+  emitLog(`Fine-tuning task created for ${baseModel}.`, {phase: "training"});
 
   const deadline = Date.now() + timeoutMs;
   const startMs = Date.now();
   let lastProgress = "";
 
   while (Date.now() < deadline) {
-    await sleep(15_000);
+    if (cancelSignal?.aborted) {
+      emitLog("Owner cancelled the run. Asking the TEE provider to halt the task.", {
+        phase: "training",
+        tone: "warning",
+      });
+      await ft.cancelTask(ftProviderAddress, taskId).catch(() => {});
+      throw new TrainingCancelledError();
+    }
+    await sleepInterruptible(15_000, cancelSignal);
+    if (cancelSignal?.aborted) {
+      await ft.cancelTask(ftProviderAddress, taskId).catch(() => {});
+      throw new TrainingCancelledError();
+    }
     let task;
     try {
       task = await ft.getTask(ftProviderAddress, taskId);
@@ -204,6 +255,10 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
     if (progress !== lastProgress) {
       const elapsed = Math.round((Date.now() - startMs) / 1000);
       console.error(`[TEE] [${elapsed}s] Progress: ${progress}`);
+      emitLog(`TEE progress: ${progress}`, {
+        phase: "training",
+        tone: progress === "Delivered" || progress === "Finished" ? "success" : "info",
+      });
       lastProgress = progress;
     }
     if (progress === "Delivered" || progress === "Finished") break;
@@ -217,21 +272,40 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
     throw new Error(`[TrainingBridge] Training timed out after ${timeoutMs}ms (task: ${taskId})`);
   }
 
+  throwIfCancelled(cancelSignal);
+
   const encryptedAdapterPath = join(tempDir, `lora_${taskId}.encrypted.bin`);
   const adapterPath = join(tempDir, `lora_${taskId}.zip`);
   console.error("[TEE] Downloading encrypted LoRA weights...");
+  emitLog("Training output delivered. Downloading encrypted LoRA weights.", {
+    phase: "delivery",
+  });
   await acknowledgeModelWithRetry(
     ft,
     ftProviderAddress,
     taskId,
     encryptedAdapterPath,
-    Math.max(0, deadline - Date.now())
+    Math.max(0, deadline - Date.now()),
+    (message, tone = "warning") => emitLog(message, {phase: "delivery", tone})
   );
+  emitLog("Encrypted LoRA weights acknowledged by the provider.", {
+    phase: "delivery",
+    tone: "success",
+  });
 
   console.error("[TEE] Waiting for provider settlement and decryption key...");
-  await waitForTaskProgress(ft, ftProviderAddress, taskId, "Finished", deadline);
+  emitLog("Waiting for the provider to finalize and release the decryption key.", {
+    phase: "delivery",
+  });
+  await waitForTaskProgress(ft, ftProviderAddress, taskId, "Finished", deadline, (progress) =>
+    emitLog(`TEE progress: ${progress}`, {
+      phase: "delivery",
+      tone: progress === "Finished" ? "success" : "info",
+    })
+  );
 
   console.error("[TEE] Decrypting LoRA weights...");
+  emitLog("Decrypting the delivered LoRA weights locally.", {phase: "delivery"});
   await ft.decryptModel(ftProviderAddress, taskId, encryptedAdapterPath, adapterPath);
 
   const adapterBytes = new Uint8Array(await readFile(adapterPath));
@@ -239,6 +313,10 @@ async function trainWith0GService(options: TrainingBridgeOptions): Promise<{
   await rm(adapterPath).catch(() => {});
 
   console.error(`[TEE] Training complete — adapter size: ${adapterBytes.length} bytes`);
+  emitLog(`Trained adapter decrypted successfully (${adapterBytes.length} bytes).`, {
+    phase: "delivery",
+    tone: "success",
+  });
 
   return {
     adapterBytes,
@@ -262,7 +340,11 @@ async function simulateTraining(options: TrainingBridgeOptions): Promise<{
   adapterBytes: Uint8Array;
   metadata: object;
 }> {
-  const {jsonlPath, baseModel, sessionId} = options;
+  const {jsonlPath, baseModel, sessionId, onLog} = options;
+  const emitLog = (
+    message: string,
+    logOptions?: {tone?: "info" | "success" | "warning" | "error"; phase?: string}
+  ) => onLog?.({message, ...logOptions});
 
   const content = await readFile(jsonlPath, "utf-8");
   const lines = content.split("\n").filter((l) => l.trim().length > 0);
@@ -271,10 +353,15 @@ async function simulateTraining(options: TrainingBridgeOptions): Promise<{
 
   console.error("[TEE] Aggregator running inside Trusted Execution Environment (simulation)");
   console.error(`[TEE] Session: ${sessionId}  Samples: ${n}  Model: ${baseModel}`);
+  emitLog("Running the local training simulation inside the TEE sandbox.", {phase: "training"});
 
   for (let step = 1; step <= steps; step++) {
+    throwIfCancelled(options.cancelSignal);
     const loss = (2.3 * Math.pow(0.85, step)).toFixed(4);
     console.error(`[TEE] Epoch 1/1  step ${step}/${steps}  loss=${loss}`);
+    emitLog(`Simulation epoch step ${step}/${steps} complete (loss ${loss}).`, {
+      phase: "training",
+    });
   }
 
   const dataFingerprint = createHash("sha256").update(lines.join("\n")).digest("hex");
@@ -309,6 +396,10 @@ async function simulateTraining(options: TrainingBridgeOptions): Promise<{
 
   console.error(`[TEE] Attestation nonce: ${attestationNonce.slice(0, 16)}...`);
   console.error("[TEE] Training complete");
+  emitLog("Simulation finished and produced a mock attested adapter.", {
+    phase: "training",
+    tone: "success",
+  });
 
   // Adapter bytes = serialized metadata (represents weights in simulation)
   const adapterBytes = new TextEncoder().encode(JSON.stringify(metadata, null, 2));
@@ -319,12 +410,29 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function sleepInterruptible(ms: number, signal?: AbortSignal): Promise<void> {
+  if (!signal) return sleep(ms);
+  if (signal.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    signal.addEventListener("abort", onAbort, {once: true});
+  });
+}
+
 async function acknowledgeModelWithRetry(
   ft: Pick<FineTuningLike, "acknowledgeModel">,
   providerAddress: string,
   taskId: string,
   adapterPath: string,
-  timeoutMs: number
+  timeoutMs: number,
+  onRetry?: (message: string, tone?: "info" | "warning") => void
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   let attempt = 0;
@@ -344,6 +452,10 @@ async function acknowledgeModelWithRetry(
       console.error(
         `[TEE] Deliverable not ready yet for task ${taskId}; retry ${attempt} in ${Math.round(delayMs / 1000)}s`
       );
+      onRetry?.(
+        `The provider has not exposed the deliverable yet. Retrying in ${Math.round(delayMs / 1000)}s.`,
+        "warning"
+      );
       await sleep(delayMs);
     }
   }
@@ -354,7 +466,8 @@ async function waitForTaskProgress(
   providerAddress: string,
   taskId: string,
   desiredProgress: string,
-  deadline: number
+  deadline: number,
+  onProgress?: (progress: string) => void
 ): Promise<void> {
   let lastProgress = "";
   while (Date.now() < deadline) {
@@ -362,6 +475,7 @@ async function waitForTaskProgress(
     const progress = task?.progress ?? "unknown";
     if (progress !== lastProgress) {
       console.error(`[TEE] Progress: ${progress}`);
+      onProgress?.(progress);
       lastProgress = progress;
     }
     if (progress === desiredProgress) return;

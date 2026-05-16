@@ -131,6 +131,7 @@ async function projectListRequest(path: string, init?: RequestInit): Promise<Pro
 function mergeLocalSecrets(remote: Project, local: Project): Project {
   return {
     ...remote,
+    stage: stickyStage(local.stage, remote.stage),
     contributors: remote.contributors.map((contributor) => {
       const cached =
         local.contributors.find((item) => item.id === contributor.id) ??
@@ -143,6 +144,19 @@ function mergeLocalSecrets(remote: Project, local: Project): Project {
     }),
     chainSession: mergeChainSessionSecrets(remote, local),
   };
+}
+
+// `failed` and `ready` are terminal client-side. Don't let a slow remote
+// rewind us back to an earlier stage (e.g. while the aggregator is still
+// processing an owner cancellation).
+function stickyStage(localStage: Project["stage"], remoteStage: Project["stage"]) {
+  if (localStage === "failed" && remoteStage !== "failed" && remoteStage !== "ready") {
+    return localStage;
+  }
+  if (localStage === "ready" && remoteStage !== "failed") {
+    return localStage;
+  }
+  return remoteStage;
 }
 
 function mergeChainSessionSecrets(remote: Project, local: Project) {

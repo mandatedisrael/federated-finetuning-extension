@@ -23,11 +23,12 @@ describe("Orchestrator", () => {
       } as any,
     };
 
-    const stopFn = startOrchestrator(mockConfig);
-    expect(typeof stopFn).toBe("function");
+    const orchestrator = startOrchestrator(mockConfig);
+    expect(typeof orchestrator.stop).toBe("function");
+    expect(typeof orchestrator.cancelSession).toBe("function");
 
     // Stop immediately
-    stopFn();
+    orchestrator.stop();
   });
 
   it("should handle state initialization", () => {
