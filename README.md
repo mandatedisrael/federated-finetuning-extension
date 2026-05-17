@@ -166,14 +166,25 @@ The frontend-backed flow uses wallet signing in two places:
 The aggregator wallet in `AGG_EVM_KEY` needs OG on the target 0G network.
 Frontend users need OG in their connected wallets when they submit on-chain.
 
-### 4. Run the aggregator service
+### 4. Start the app for testing
+
+Use two terminals.
+
+In the first terminal, start the frontend:
+
+```bash
+cd frontend
+pnpm start
+```
+
+In the second terminal, start the aggregator service:
 
 ```bash
 cd aggregator
 pnpm start
 ```
 
-What this does:
+The aggregator service:
 
 1. Loads `aggregator/.env`
 2. Starts the aggregator event listener
@@ -299,44 +310,6 @@ FFE/
 │       └── storage/
 └── docs/
 ```
-
----
-
-## Roadmap
-
-### v1
-
-- Joint training mode
-- Multi-owner encrypted output
-- Optional real 0G fine-tuning integration
-- TEE/Tapp attestation hardening
-- SDK + frontend-backed aggregator service
-
-### v2
-
-- Quality Gate
-- Staking and slashing
-- TEE-signed rejection certificates
-- Post-training validation
-- Dropout-tolerant M-of-N sessions
-
-### v3
-
-- Multi-round federated LoRA delta aggregation
-- Differential privacy
-- Robust aggregation methods such as median, trimmed mean, or Krum
-- Reputation and marketplace integrations
-
----
-
-## References
-
-- ERC-7857 / INFT-style encrypted model ownership
-- 0G Compute fine-tuning
-- 0G Storage
-- 0G Chain
-- LoRA: Low-Rank Adaptation of Large Language Models
-- Federated Learning: McMahan et al., 2017
 
 ---
 
